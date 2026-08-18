@@ -2,6 +2,9 @@
 
 import { $, GOAL_M, PXPM } from "./config";
 
+// Vom Spieler in der Bauphase gewählte Einstellungen
+export const settings = { endless: false };
+
 export const sim: any = {
   running: false,
   phase: "drop",
@@ -39,7 +42,9 @@ export function inRapids(m: number): boolean {
 
 export function waveAmp(): number {
   if (sim.phase === "drop") return 5;
-  const base = 6 + Math.min(1, sim.dist / GOAL_M) * 9;
+  // Im Endlos-Modus wachsen die Wellen über die 600 m hinaus weiter — bis es nicht mehr geht.
+  const cap = sim.endless ? 1.8 : 1;
+  const base = 6 + Math.min(cap, sim.dist / GOAL_M) * 9;
   return base * (inRapids(sim.dist) ? 2.2 : 1);
 }
 

@@ -18,6 +18,7 @@ import {
   canvas,
   inRapids,
   resizeCanvas,
+  settings,
   sim,
   spawnBubble,
   spawnSplash,
@@ -27,6 +28,21 @@ import {
 import { showBanner } from "./hud";
 import { detachPart, nukeDetonate, policeHit, rockCrash, rocketImpact } from "./damage";
 import { draw } from "./scene";
+
+const QUOTES = [
+  "Brudi: „Die Route hab ich auf Google Maps gecheckt.“",
+  "Brudi: „Stromschnellen sind nur schnelles Wasser, Bro.“",
+  "Brudi: „Das ist zu 100% safe, Chat.“",
+  "Brudi: „Wer braucht schon ein Paddel.“",
+  "Brudi: „Läuft doch su– was war das für ein Geräusch?“",
+  "Brudi: „Ich spüre kaum Wasser in den Schuhen.“",
+  "Brudi: „TÜV ist für Fahrzeuge.“",
+  "Brudi: „Chat, ich habe das ausgerechnet.“",
+  "Brudi: „Das ist kein Loch, das ist Drainage.“",
+  "Brudi: „Straubing müsste hier irgendwo sein.“",
+  "Brudi: „Google Maps sagt, wir sind auf einer Straße.“",
+  "Brudi: „Der Affe auf der Taube gehört bestimmt zur Wasserwacht.“",
+];
 
 export function startTest() {
   const groups = components(placed);
@@ -95,6 +111,11 @@ export function startTest() {
     blizzWarned: false,
     // Sehr selten stehen zwei Beamte am Ziel-Steg. Reine Formsache.
     blizzcon: Math.random() < 0.02,
+    // Endlos-Modus: Distanz zählt, der Kurs wird fortlaufend generiert
+    endless: settings.endless,
+    bestDist: Number(localStorage.getItem("flossBestDist") || 0),
+    nextEventM: GOAL_M - 50,
+    policeGone: false,
   });
 
   // Ufer-Cameos: maximal zwei frühere Abenteuer pro Fahrt
@@ -120,6 +141,7 @@ export function startTest() {
     sim.zones.push({ s: zm, e: zm + 55 + Math.random() * 45, announced: false });
     zm += 180 + Math.random() * 90;
   }
+  sim.zoneEnd = zm;
   sim.rocks = [];
   let rm = 70 + Math.random() * 40;
   while (rm < GOAL_M - 60) {
@@ -132,6 +154,7 @@ export function startTest() {
     });
     rm += 55 + Math.random() * 60;
   }
+  sim.courseEnd = rm;
   // Erst ab einer EXTREMEN Topfi-Sammlung (10+) wird nicht mehr verhandelt.
   const tc = topfiCountOf(mainParts);
   sim.nuke =
@@ -211,21 +234,7 @@ export function startTest() {
 
   sim.gull = Math.random() < 0.35 ? { at: 8 + Math.random() * 22, landed: false } : null;
 
-  const QUOTES = [
-    "Brudi: „Die Route hab ich auf Google Maps gecheckt.“",
-    "Brudi: „Stromschnellen sind nur schnelles Wasser, Bro.“",
-    "Brudi: „Das ist zu 100% safe, Chat.“",
-    "Brudi: „Wer braucht schon ein Paddel.“",
-    "Brudi: „Läuft doch su– was war das für ein Geräusch?“",
-    "Brudi: „Ich spüre kaum Wasser in den Schuhen.“",
-    "Brudi: „TÜV ist für Fahrzeuge.“",
-    "Brudi: „Chat, ich habe das ausgerechnet.“",
-    "Brudi: „Das ist kein Loch, das ist Drainage.“",
-    "Brudi: „Straubing müsste hier irgendwo sein.“",
-    "Brudi: „Google Maps sagt, wir sind auf einer Straße.“",
-    "Brudi: „Der Affe auf der Taube gehört bestimmt zur Wasserwacht.“",
-  ];
-  const shuffled = QUOTES.sort(() => Math.random() - 0.5);
+  const shuffled = [...QUOTES].sort(() => Math.random() - 0.5);
   sim.quotes = [6, 17, 30].map((base, i) => ({
     at: base + Math.random() * 5,
     text: shuffled[i],
@@ -264,8 +273,19 @@ export function startTest() {
   $("test-screen").classList.remove("hidden");
   $("event-log").innerHTML = "";
   showBanner("3… 2… 1… WASSERUNG! 🌊", false, 2600);
+  if (sim.endless) {
+    setTimeout(
+      () =>
+        showBanner(
+          `♾️ ENDLOS-MODUS: Fahr, so weit du kommst! Rekord: ${sim.bestDist} m`,
+          false,
+          2800,
+        ),
+      2700,
+    );
+  }
   if (drifters.length) {
-    setTimeout(() => showBanner("Moment… da war was nicht festgebunden?! 🪢", true, 2800), 2800);
+    setTimeout(() => showBanner("Moment… da war was nicht festgebunden?! 🪢", true, 2800), 5600);
   }
 
   resizeCanvas();
@@ -447,7 +467,13 @@ function update(dt: number) {
   }
 
   // Die Beamten am Steg. Reine Routinekontrolle.
-  if (sim.blizzcon && !sim.blizzWarned && sim.phase === "float" && sim.dist >= GOAL_M - 55) {
+  if (
+    !sim.endless &&
+    sim.blizzcon &&
+    !sim.blizzWarned &&
+    sim.phase === "float" &&
+    sim.dist >= GOAL_M - 55
+  ) {
     sim.blizzWarned = true;
     showBanner("🛂 ENTRY DENIED. …ach nee, doch nicht. Weiterfahren.", true, 2600);
   }
@@ -471,6 +497,89 @@ function update(dt: number) {
     // Fahrt flussabwärts
     sim.speed = BASE_SPEED * (inRapids(sim.dist) ? 1.7 : 1);
     sim.dist += sim.speed * dt;
+
+    // ---- Endlos-Modus: Kurs nachlegen + Events nachwürfeln ----
+    if (sim.endless) {
+      while (sim.courseEnd < sim.dist + 900) {
+        sim.rocks.push({
+          m: sim.courseEnd,
+          size: 24 + Math.random() * 22,
+          // Mit der Distanz stehen mehr Felsen in der Fahrrinne
+          inLine: Math.random() < Math.min(0.75, 0.55 + sim.dist / 6000),
+          hit: false,
+          nearMissed: false,
+        });
+        sim.courseEnd += 55 + Math.random() * 60;
+      }
+      while (sim.zoneEnd < sim.dist + 900) {
+        sim.zones.push({
+          s: sim.zoneEnd,
+          e: sim.zoneEnd + 55 + Math.random() * 45,
+          announced: false,
+        });
+        sim.zoneEnd += 180 + Math.random() * 90;
+      }
+      if (sim.rocks.length > 60) sim.rocks = sim.rocks.filter((r: any) => r.m > sim.dist - 120);
+      if (sim.zones.length > 20) sim.zones = sim.zones.filter((z: any) => z.e > sim.dist - 120);
+      if (sim.cameos.length > 8)
+        sim.cameos = sim.cameos.filter((c: any) => c.stage < 2 || c.atM > sim.dist - 150);
+
+      // Event-Direktor: alle ~250 m neue Gefahren und Gags
+      if (sim.dist >= sim.nextEventM) {
+        sim.nextEventM = sim.dist + 240 + Math.random() * 120;
+        const parts = sim.main ? sim.main.parts : [];
+        if ((!sim.rocket || sim.rocket.exploded) && !sim.nuke && Math.random() < rocketRisk(parts))
+          sim.rocket = {
+            atM: sim.dist + 120 + Math.random() * 250,
+            warned: false,
+            fired: false,
+            prog: 0,
+            exploded: false,
+          };
+        // Die Polizei kommt pro Endlos-Run nur EINMAL — danach hat sie Feierabend.
+        if (
+          !sim.policeGone &&
+          (!sim.police || sim.police.done) &&
+          !sim.nuke &&
+          Math.random() < Math.min(0.9, 0.12 + spamPenalty(parts) * 0.8)
+        )
+          sim.police = {
+            atM: sim.dist + 120 + Math.random() * 250,
+            announced: false,
+            approach: 0,
+            hailed: false,
+            holdT: 0,
+            shot: false,
+            shotProg: 0,
+            done: false,
+          };
+        if ((!sim.mayflies || sim.mayflies.done) && Math.random() < 0.3)
+          sim.mayflies = {
+            atM: sim.dist + 100 + Math.random() * 200,
+            t: 0,
+            intensity: 0,
+            corpses: 0,
+            started: false,
+            done: false,
+          };
+        if (Math.random() < 0.45) {
+          const ids = ["egypt", "amsterdam", "mccarry", "suitcase"];
+          sim.cameos.push({
+            id: ids[Math.floor(Math.random() * ids.length)],
+            atM: sim.dist + 150 + Math.random() * 200,
+            stage: 0,
+          });
+        }
+        if ((!sim.gull || sim.gull.landed) && Math.random() < 0.25)
+          sim.gull = { at: sim.t + 6 + Math.random() * 10, landed: false };
+        if (Math.random() < 0.5)
+          sim.quotes.push({
+            at: sim.t + 4 + Math.random() * 10,
+            text: QUOTES[Math.floor(Math.random() * QUOTES.length)],
+            done: false,
+          });
+      }
+    }
 
     for (const z of sim.zones) {
       if (!z.announced && sim.dist >= z.s - 15) {
@@ -538,6 +647,21 @@ function update(dt: number) {
           }
         }
       }
+    }
+
+    // Nach dem Schuss: Einsatz beendet, das Boot dreht ab und verschwindet.
+    if (sim.police && sim.police.done) {
+      const po = sim.police;
+      if (!po.leavingMsg) {
+        po.leavingMsg = true;
+        sim.policeGone = true;
+        setTimeout(
+          () => showBanner("🚔 Einsatz beendet. Die Wasserschutzpolizei dreht ab.", false, 2400),
+          2600,
+        );
+      }
+      po.approach -= dt / 3;
+      if (po.approach < -0.4) sim.police = null;
     }
 
     // Wasserschutzpolizei: erst Blaulicht, dann Ansage, dann… Bordkanone.
@@ -633,10 +757,15 @@ function update(dt: number) {
         showBanner("Zu viel Wasser im Floß! 🌊😱", true, 3000);
       }
 
-      if (sim.phase === "float" && sim.dist >= GOAL_M) {
+      if (!sim.endless && sim.phase === "float" && sim.dist >= GOAL_M) {
         sim.phase = "won";
         showBanner("DER STEG! ANGEKOMMEN! 🏁 EIN WUNDER!", false, 4000);
         setTimeout(() => endTest(true), 3000);
+      }
+      // Endlos: Meilensteine feiern
+      if (sim.endless && sim.dist >= (sim.nextMilestone || GOAL_M)) {
+        sim.nextMilestone = (sim.nextMilestone || GOAL_M) + 300;
+        showBanner(`📏 ${Math.round(sim.dist)} m! Es geht einfach weiter!`, false, 2200);
       }
     }
   } else if (sim.phase === "sinking") {
@@ -708,8 +837,12 @@ function update(dt: number) {
   // HUD
   st = sim.main;
   const cap = st ? capAt(st, st.Hpx + 0.1).cap : 0;
+  const rapidsTag = inRapids(sim.dist) ? " · 🌊 <b>STROMSCHNELLEN</b>" : "";
+  const line1 = sim.endless
+    ? `📍 <b>${sim.dist.toFixed(0)} m</b> · 🏆 Rekord: ${sim.bestDist} m${rapidsTag}`
+    : `📍 Noch <b>${Math.max(0, GOAL_M - sim.dist).toFixed(0)} m</b> bis zum Steg${rapidsTag}`;
   $("hud").innerHTML =
-    `📍 Noch <b>${Math.max(0, GOAL_M - sim.dist).toFixed(0)} m</b> bis zum Steg${inRapids(sim.dist) ? " · 🌊 <b>STROMSCHNELLEN</b>" : ""}<br>` +
+    `${line1}<br>` +
     `🎈 Auftrieb: <b>${Math.round(cap)}</b> / ⚖️ <b>${st ? st.weight : BRUDI_WEIGHT} kg</b><br>` +
     `↺ Neigung: <b>${Math.round(Math.abs(sim.tilt) * 57)}°</b> · 🌊 Wasser im Floß: <b>${Math.round(Math.min(1, sim.swamp) * 100)}%</b>`;
 }
@@ -741,7 +874,16 @@ function endTest(won: boolean) {
   clearTimeout(sim.bannerTimeout);
   $("banner").classList.add("hidden");
   const st = sim.main;
-  const meters = Math.min(GOAL_M, Math.round(sim.dist));
+  const endless = sim.endless;
+  const meters = endless ? Math.round(sim.dist) : Math.min(GOAL_M, Math.round(sim.dist));
+
+  // Endlos: Rekord festhalten
+  let newRecord = false;
+  if (endless) {
+    const best = Number(localStorage.getItem("flossBestDist") || 0);
+    newRecord = meters > best;
+    if (newRecord) localStorage.setItem("flossBestDist", String(meters));
+  }
 
   // Lore-Badges: was hat die Fahrt überlebt?
   const finalParts = st ? st.parts : [];
@@ -788,6 +930,16 @@ function endTest(won: boolean) {
       meters * 2 + (st ? st.parts.length * 15 : 0) + sim.comfort * 40 + (won ? 500 : 0) + bonus,
     ),
   );
+
+  // Im Endlos-Modus zählt nur die Strecke
+  if (endless) {
+    badges.unshift(
+      newRecord
+        ? `🏆 NEUER REKORD: ${meters} m!`
+        : `🏆 Rekord bleibt bei ${localStorage.getItem("flossBestDist") || 0} m`,
+    );
+  }
+  $("end-score-label").textContent = endless ? "Distanz:" : "Seetauglichkeits-Score:";
   $("end-badges").innerHTML = badges.map((b) => `<span class="badge">${b}</span>`).join("");
 
   const card = document.querySelector(".end-card")!;
@@ -847,7 +999,7 @@ function endTest(won: boolean) {
     text = `${meters} m gekämpft, dann haben die Wellen gewonnen. Tipp: Höher bauen oder mehr Auftrieb unten rein.`;
   }
   $("end-text").textContent = text;
-  $("end-score").textContent = String(score);
+  $("end-score").textContent = endless ? `${meters} m` : String(score);
   $("end-screen").classList.remove("hidden");
 }
 

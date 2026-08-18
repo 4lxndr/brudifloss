@@ -6,7 +6,7 @@
 import { $ } from "./config";
 import { initBuilderInput, placed, renderBuild } from "./builder";
 import { backToBuild, startTest, tryTape } from "./sim";
-import { sim } from "./state";
+import { settings, sim } from "./state";
 import { PARTS } from "./parts/index";
 import { initGallery } from "./gallery";
 
@@ -17,6 +17,15 @@ if (document.getElementById("gallery-root")) {
   $("start-btn").addEventListener("click", startTest);
   $("retry-btn").addEventListener("click", backToBuild);
   $("tape-btn").addEventListener("click", tryTape);
+
+  // Modus-Switch: 600 m Klassik vs. Endlos
+  const setMode = (endless: boolean) => {
+    settings.endless = endless;
+    $("mode-classic").classList.toggle("active", !endless);
+    $("mode-endless").classList.toggle("active", endless);
+  };
+  $("mode-classic").addEventListener("click", () => setMode(false));
+  $("mode-endless").addEventListener("click", () => setMode(true));
 
   initBuilderInput();
   renderBuild();

@@ -66,6 +66,11 @@
           <div class="stat-chip">🤞 Ob's schwimmt? Finden wir raus.</div>
         </div>
 
+        <div class="mode-row">
+          <button id="mode-classic" class="mode-btn active">🏁 600 m bis zum Steg</button>
+          <button id="mode-endless" class="mode-btn">♾️ Endlos — wer kommt am weitesten?</button>
+        </div>
+
         <button id="start-btn" class="start-btn">🌊 AB IN DEN FLUSS!</button>
       </section>
     </div>
@@ -94,7 +99,9 @@
         <h1 id="end-title"></h1>
         <p id="end-text"></p>
         <div id="end-badges" class="end-badges"></div>
-        <div class="end-score">Seetauglichkeits-Score: <b id="end-score"></b></div>
+        <div class="end-score">
+          <span id="end-score-label">Seetauglichkeits-Score:</span> <b id="end-score"></b>
+        </div>
         <button id="retry-btn" class="start-btn">🔨 NOCHMAL BAUEN</button>
       </div>
     </div>

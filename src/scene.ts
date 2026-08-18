@@ -190,9 +190,11 @@ export function draw() {
     }
   }
 
-  // Der Ziel-Steg
-  const goalX = raftX + (GOAL_M - sim.dist) * PXPM;
-  if (goalX < W + 260) drawGoal(ctx, goalX, waterBase);
+  // Der Ziel-Steg (im Endlos-Modus gibt es keinen — der Fluss hört nie auf)
+  if (!sim.endless) {
+    const goalX = raftX + (GOAL_M - sim.dist) * PXPM;
+    if (goalX < W + 260) drawGoal(ctx, goalX, waterBase);
+  }
 
   drawRocket(ctx, raftX, waterBase);
   drawBomber(ctx, raftX, waterBase, W, H, time);

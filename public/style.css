@@ -274,6 +274,37 @@ h2 {
   margin-left: 4px;
 }
 
+.mode-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #33334f;
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    border-color 0.12s,
+    color 0.12s;
+}
+
+.mode-btn:hover {
+  border-color: var(--accent);
+}
+
+.mode-btn.active {
+  border-color: var(--accent2);
+  color: var(--text);
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.25);
+}
+
 .start-btn {
   width: 100%;
   padding: 14px;
