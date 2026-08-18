@@ -26,6 +26,7 @@ export const TINT: Record<string, string> = {
   nudel: "80,220,160",
   topfi: "170,180,200",
   strudel: "235,180,90",
+  tape: "165,170,180",
 };
 
 export const $ = (id: string) => document.getElementById(id) as HTMLElement;

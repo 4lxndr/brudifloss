@@ -3,6 +3,27 @@ import { TINT } from "./config";
 import { rr } from "./draw-utils";
 import { PAINTERS } from "./parts/index";
 
+// Gold-Rahmen + „5.“-Schild für das legendäre fünfte Fass.
+export function drawFifthMark(ctx: Ctx2D, x: number, y: number, w: number, h: number) {
+  ctx.save();
+  ctx.strokeStyle = "#ffd24a";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.roundRect(x + 2, y + 2, w - 4, h - 4, w * 0.22);
+  ctx.stroke();
+  const r = Math.min(w, h) * 0.16;
+  ctx.fillStyle = "#ffd24a";
+  ctx.beginPath();
+  ctx.arc(x + w * 0.82, y + h * 0.18, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#5c3a18";
+  ctx.font = `bold ${r * 1.3}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("5.", x + w * 0.82, y + h * 0.19);
+  ctx.restore();
+}
+
 // Zeichnet ein Bauteil ins Raster-Rechteck — überall gleich: Palette, Werkbank, Fluss, Treibgut.
 export function drawPartRect(
   ctx: Ctx2D,

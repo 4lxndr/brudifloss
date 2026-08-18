@@ -3,7 +3,7 @@
 import type { Ctx2D } from "./types";
 import { CT, FACE, GOAL_M, PXPM } from "./config";
 import { canvas, sim, waveAt } from "./state";
-import { drawPartRect } from "./painters";
+import { drawFifthMark, drawPartRect } from "./painters";
 
 export function draw() {
   const c = canvas(),
@@ -52,12 +52,8 @@ export function draw() {
   cloudAt(((performance.now() / 120) % (W + 260)) - 130, H * 0.12, 110);
   cloudAt(((performance.now() / 180 + 300) % (W + 260)) - 130, H * 0.22, 85);
   cloudAt(((performance.now() / 150 + 600) % (W + 260)) - 130, H * 0.07, 65);
-  ctx.font = "22px serif";
-  ctx.fillText(
-    "🕊️",
-    ((performance.now() / 60) % (W + 100)) - 50,
-    H * 0.3 + Math.sin(performance.now() / 400) * 12,
-  );
+  drawMonkeyPigeon(ctx, W, H);
+  drawUmbrellaMonkey(ctx, raftX, W, H);
 
   // Ufer: Hügel + Bäume ziehen vorbei (Parallaxe)
   const scroll = (sim.dist || 0) * PXPM;
@@ -220,6 +216,18 @@ export function draw() {
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (p.type === "banana") {
+      // Der Affe verliert gelegentlich eine Banane. Niemand fragt, warum.
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.life * 4);
+      ctx.strokeStyle = "#ffd23e";
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.restore();
     } else {
       ctx.fillStyle = "#cfeaff";
       ctx.beginPath();
@@ -236,6 +244,156 @@ export function draw() {
     ctx.fillRect(-40, -40, W + 80, H + 80);
     ctx.globalAlpha = 1;
   }
+}
+
+// Der berühmte Affe. Wiederverwendbar für Taube und Regenschirm.
+function drawMonkey(ctx: Ctx2D, s: number) {
+  ctx.save();
+  ctx.scale(s, s);
+  // Beine klammern
+  ctx.strokeStyle = "#6b4a2f";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-5, 8);
+  ctx.lineTo(-8, 13);
+  ctx.moveTo(5, 8);
+  ctx.lineTo(8, 13);
+  ctx.stroke();
+  // Schwanz-Kringel
+  ctx.strokeStyle = "#8a5f3c";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(-11, 2, 4, Math.PI * 0.3, Math.PI * 1.7);
+  ctx.stroke();
+  // Körper + Bauch
+  ctx.fillStyle = "#8a5f3c";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 8, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#c9a074";
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 4.5, 5.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Kopf + Ohren
+  ctx.fillStyle = "#8a5f3c";
+  ctx.beginPath();
+  ctx.arc(0, -12, 6.5, 0, Math.PI * 2);
+  ctx.arc(-6.5, -13, 2.5, 0, Math.PI * 2);
+  ctx.arc(6.5, -13, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Gesicht + Augen
+  ctx.fillStyle = "#c9a074";
+  ctx.beginPath();
+  ctx.ellipse(0, -11, 4, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#2b2b34";
+  ctx.beginPath();
+  ctx.arc(-1.7, -12, 0.9, 0, Math.PI * 2);
+  ctx.arc(1.7, -12, 0.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Ein viel zu großer Affe auf einer sichtbar überforderten Taube.
+function drawMonkeyPigeon(ctx: Ctx2D, W: number, H: number) {
+  const t = performance.now();
+  const x = ((t / 60) % (W + 160)) - 80;
+  const y = H * 0.28 + Math.sin(t / 400) * 12;
+  const flap = Math.sin(t / 80); // Taube flattert hektisch…
+  const bob = Math.sin(t / 300) * 2.5; // …der Affe wippt gemütlich
+  ctx.save();
+  ctx.translate(x, y);
+  // Flügel
+  ctx.fillStyle = "#d9dee4";
+  ctx.beginPath();
+  ctx.ellipse(-2, -3, 9, 4 + flap * 3.5, -0.5 + flap * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Taube: Körper, Schwanz, Kopf, Schnabel
+  ctx.fillStyle = "#eef1f4";
+  ctx.strokeStyle = "#9aa4ad";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 13, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#d9dee4";
+  ctx.beginPath();
+  ctx.moveTo(-12, -2);
+  ctx.lineTo(-20, -6 + flap * 2);
+  ctx.lineTo(-12, 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#eef1f4";
+  ctx.beginPath();
+  ctx.arc(12, -4, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#f5a623";
+  ctx.beginPath();
+  ctx.moveTo(16, -5);
+  ctx.lineTo(20, -3.5);
+  ctx.lineTo(16, -2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#2b2b34";
+  ctx.beginPath();
+  ctx.arc(13, -5.5, 1, 0, Math.PI * 2);
+  ctx.fill();
+  // Affe obendrauf
+  ctx.translate(0, -16 + bob);
+  drawMonkey(ctx, 1);
+  ctx.restore();
+}
+
+// Der zweite Affe: hängt am roten Regenschirm und schwebt majestätisch vorbei.
+function drawUmbrellaMonkey(ctx: Ctx2D, raftX: number, W: number, H: number) {
+  const um = sim.umbrellaMonkey;
+  if (!um) return;
+  const sx = raftX + (um.atM - (sim.dist || 0)) * 10 * 0.5;
+  if (sx < -80 || sx > W + 80) return;
+  const t = performance.now();
+  const sway = Math.sin(t / 700) * 0.12;
+  const y = H * 0.18 + Math.sin(t / 900) * 8;
+  ctx.save();
+  ctx.translate(sx, y);
+  ctx.rotate(sway);
+  // Schirm
+  ctx.fillStyle = "#d1382e";
+  ctx.strokeStyle = "#8e211a";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 22, Math.PI, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  for (const a of [0.25, 0.5, 0.75]) {
+    const ang = Math.PI + a * Math.PI;
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(ang) * 22, Math.sin(ang) * 22);
+  }
+  ctx.stroke();
+  // Spitze + Stiel
+  ctx.strokeStyle = "#5c3a18";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -22);
+  ctx.lineTo(0, -27);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, 14);
+  ctx.stroke();
+  // Affe hängt darunter, Arm zum Stiel
+  ctx.translate(0, 28);
+  ctx.strokeStyle = "#6b4a2f";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(2, -8);
+  ctx.lineTo(0, -16);
+  ctx.stroke();
+  drawMonkey(ctx, 0.9);
+  ctx.restore();
 }
 
 function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
@@ -263,7 +421,31 @@ function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: numbe
     const x = offX + (p.col - st.minCol) * CT;
     const y = offY + (p.row - st.minRow) * CT;
     drawPartRect(ctx, p.def, x, y, CT, p.broken);
+    if (p.fifth) drawFifthMark(ctx, x, y, p.def.w * CT, p.def.h * CT);
   }
+
+  // Die Brudivoeller_TV-Flagge am Heck
+  const flagX = offX + 4;
+  const flagY = offY - 2;
+  const flutter = Math.sin(performance.now() / 180) * 3;
+  ctx.strokeStyle = "#5c3a18";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagY);
+  ctx.lineTo(flagX, flagY - 30);
+  ctx.stroke();
+  ctx.fillStyle = "#9146ff";
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagY - 30);
+  ctx.lineTo(flagX + 36, flagY - 26 + flutter);
+  ctx.lineTo(flagX, flagY - 19);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 7px sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("BRUDI", flagX + 4, flagY - 24.5 + flutter * 0.4);
 
   // Brudi auf der Standfläche (fällt bei Kenterung separat)
   if (!sim.freeBrudi) {
@@ -293,6 +475,7 @@ function drawDrifters(ctx: Ctx2D, raftX: number, waterBase: number, time: number
     ctx.rotate(Math.sin(time * 2 + dr.wob) * 0.18);
     // Halb eingetaucht davontreiben — als richtige Zeichnung, nicht als Emoji
     drawPartRect(ctx, dr.def, -w / 2, -h + h * 0.3, cs);
+    if (dr.fifth) drawFifthMark(ctx, -w / 2, -h + h * 0.3, w, h);
     ctx.restore();
   }
 }
@@ -678,29 +861,68 @@ export function drawBrudi(ctx: Ctx2D, x: number, footY: number, time: number, fo
   const won = sim.phase === "won";
   const flail = panic ? Math.sin(performance.now() / 60) * 0.9 : Math.sin(time * 2) * 0.12;
 
+  const skin = "#eab68f";
+  const skinDark = "#c68e63";
+
   ctx.save();
   ctx.translate(x, footY);
   if (panic) ctx.rotate(Math.sin(performance.now() / 150) * 0.15);
 
-  // Beine
-  ctx.strokeStyle = "#26263c";
+  // Beine (nackt — es ist Floßwetter)
+  ctx.strokeStyle = skin;
   ctx.lineWidth = 6;
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(-7, 0);
-  ctx.lineTo(-6, -22);
+  ctx.lineTo(-6, -20);
   ctx.moveTo(7, 0);
-  ctx.lineTo(6, -22);
+  ctx.lineTo(6, -20);
   ctx.stroke();
 
-  // Torso (Twitch-lila Hoodie)
-  ctx.fillStyle = "#9146ff";
+  // DIE rote Badehose
+  ctx.fillStyle = "#e03131";
+  ctx.strokeStyle = "#a51f1f";
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(-14, -56, 28, 36, 8);
+  ctx.roundRect(-13, -34, 26, 15, 4);
+  ctx.fill();
+  ctx.stroke();
+  // Kordel
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-2, -31);
+  ctx.lineTo(-4, -26);
+  ctx.moveTo(2, -31);
+  ctx.lineTo(4, -26);
+  ctx.stroke();
+
+  // Oberkörper (Haut) + Details
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.roundRect(-13, -54, 26, 21, 7);
+  ctx.fill();
+  ctx.fillStyle = skinDark;
+  ctx.beginPath();
+  ctx.arc(0, -38, 1.4, 0, Math.PI * 2); // Bauchnabel
+  ctx.arc(-5, -48, 1.1, 0, Math.PI * 2);
+  ctx.arc(5, -48, 1.1, 0, Math.PI * 2);
   ctx.fill();
 
-  // Arme
-  ctx.strokeStyle = "#9146ff";
+  // Die viel zu kleine, rein dekorative Schwimmweste
+  ctx.fillStyle = "#ff8c1a";
+  ctx.strokeStyle = "#c96a08";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.roundRect(-12, -55, 7, 12, 2);
+  ctx.roundRect(5, -55, 7, 12, 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#5c636e";
+  ctx.fillRect(-2, -50, 4, 2.5); // Schnalle, geschlossen über nichts
+
+  // Arme (Haut)
+  ctx.strokeStyle = skin;
   ctx.lineWidth = 7;
   const armY = -48;
   ctx.beginPath();

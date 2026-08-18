@@ -22,6 +22,8 @@ export interface PlacedPart {
   col: number;
   row: number;
   broken: boolean;
+  /** Das legendäre 5. Fass — genau eine Instanz kann diese Ehre tragen. */
+  fifth?: boolean;
 }
 
 export interface Structure {

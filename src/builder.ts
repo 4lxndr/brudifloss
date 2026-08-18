@@ -3,7 +3,7 @@
 import type { PartDef, PlacedPart } from "./types";
 import { $, BRUDI_WEIGHT, CELL, COLS, ROWS, TINT } from "./config";
 import { PARTS } from "./parts/index";
-import { drawPartRect } from "./painters";
+import { drawFifthMark, drawPartRect } from "./painters";
 import { rocketRisk, topfiCountOf } from "./physics";
 
 export let placed: PlacedPart[] = [];
@@ -110,7 +110,10 @@ export function drawGrid() {
   }
 
   // Teile
-  for (const p of placed) drawPartRect(ctx, p.def, p.col * CELL, p.row * CELL, CELL, false);
+  for (const p of placed) {
+    drawPartRect(ctx, p.def, p.col * CELL, p.row * CELL, CELL, false);
+    if (p.fifth) drawFifthMark(ctx, p.col * CELL, p.row * CELL, p.def.w * CELL, p.def.h * CELL);
+  }
 
   // Ghost-Vorschau
   if (hover && !eraseMode && selectedDef) {
@@ -242,7 +245,18 @@ export function initBuilderInput() {
     if (!selectedDef) return;
     const [ac, ar] = anchorFor(selectedDef, col, row);
     if (!canPlace(selectedDef, ac, ar)) return;
-    placed.push({ def: selectedDef, col: ac, row: ar, broken: false });
+    const inst: PlacedPart = { def: selectedDef, col: ac, row: ar, broken: false };
+    placed.push(inst);
+    // Das 5. platzierte Fass wird automatisch zum legendären 5. Fass.
+    if (
+      selectedDef.id === "fass" &&
+      !placed.some((p) => p.fifth) &&
+      placed.filter((p) => p.def.id === "fass").length === 5
+    ) {
+      inst.fifth = true;
+      $("info-bar").innerHTML =
+        "🛢️ <b>DAS FÜNFTE FASS.</b> Jetzt ist es offiziell professioneller Floßbau. (Mehr Auftrieb, fragwürdige Befestigung, Legendenstatus.)";
+    }
     renderBuild();
   });
   c.addEventListener("contextmenu", (e) => {

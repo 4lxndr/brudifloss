@@ -43,6 +43,7 @@ export function startTest() {
   const mainCenterCol = main ? main.minCol + main.Wpx / CT / 2 : COLS / 2;
   const drifters = drifterGroups.flat().map((p) => ({
     def: p.def,
+    fifth: p.fifth,
     dx: (p.col + p.def.w / 2 - mainCenterCol) * CT,
     vx: (p.col + p.def.w / 2 < mainCenterCol ? -1 : 1) * (25 + Math.random() * 30),
     wob: Math.random() * 10,
@@ -71,6 +72,12 @@ export function startTest() {
     explosion: null,
     rockHits: 0,
     rocketHit: false,
+    tapeCharges: mainParts.filter((p) => p.def.id === "tape").length,
+    tapeUsed: 0,
+    tapeOffer: null,
+    tiltQuoteDone: false,
+    // Der zweite Affe schwebt bei knapp der Hälfte aller Fahrten vorbei
+    umbrellaMonkey: Math.random() < 0.45 ? { atM: 150 + Math.random() * 300 } : null,
   });
 
   // ---- Der Flusslauf: Stromschnellen, Felsen, ggf. eine Rakete. Normal. ----
@@ -153,6 +160,8 @@ export function startTest() {
       if (p.def.id === "topfi") continue; // Topfi verlässt Brudi nie.
       const contacts = contactCount(p, main.parts);
       let prob = contacts <= 1 ? 0.9 : contacts === 2 ? 0.55 : 0.25;
+      // Das 5. Fass ist legendär schlecht befestigt. Traditionsgemäß.
+      if (p.fifth) prob = Math.min(0.98, prob * 2.2);
       // Das Teil, auf dem Brudi rumtrampelt, leidet zusätzlich
       if (
         sc &&
@@ -176,7 +185,12 @@ export function startTest() {
     "Brudi: „Wer braucht schon ein Paddel.“",
     "Brudi: „Läuft doch su– was war das für ein Geräusch?“",
     "Brudi: „Ich spüre kaum Wasser in den Schuhen.“",
-    "Brudi: „TÜV? Kenn ich nicht.“",
+    "Brudi: „TÜV ist für Fahrzeuge.“",
+    "Brudi: „Chat, ich habe das ausgerechnet.“",
+    "Brudi: „Das ist kein Loch, das ist Drainage.“",
+    "Brudi: „Straubing müsste hier irgendwo sein.“",
+    "Brudi: „Google Maps sagt, wir sind auf einer Straße.“",
+    "Brudi: „Der Affe auf der Taube gehört bestimmt zur Wasserwacht.“",
   ];
   const shuffled = QUOTES.sort(() => Math.random() - 0.5);
   sim.quotes = [6, 17, 30].map((base, i) => ({
@@ -184,6 +198,25 @@ export function startTest() {
     text: shuffled[i],
     done: false,
   }));
+  // Zustandsabhängige Zitate: was verbaut ist, wird auch kommentiert.
+  if (mainParts.some((p) => p.fifth))
+    sim.quotes.push({
+      at: 10 + Math.random() * 6,
+      text: "Brudi: „Das fünfte Fass ist nur zur Sicherheit.“",
+      done: false,
+    });
+  if (topfiCountOf(mainParts) > 0)
+    sim.quotes.push({
+      at: 22 + Math.random() * 6,
+      text: "Brudi: „Topfi würde mich niemals verlassen.“",
+      done: false,
+    });
+  if (sim.tapeCharges > 0)
+    sim.quotes.push({
+      at: 14 + Math.random() * 6,
+      text: "Brudi: „Das hält. Ich habe zweimal dran gezogen.“",
+      done: false,
+    });
   const spam = worstSpam(mainParts);
   if (spam && spam.over >= 2) {
     sim.quotes.push({
@@ -262,11 +295,48 @@ function update(dt: number) {
     if (!ev.warned && sim.t >= ev.at - 1.3) {
       ev.warned = true;
       showBanner("*KNARZ* … das klingt nicht gut. 😬", true, 1200);
+      if (!sim.tapeOffer) sim.tapeOffer = ev; // Zeitfenster für PANZERTAPE DRAUF!
     }
     if (sim.t >= ev.at) {
       ev.done = true;
+      if (sim.tapeOffer === ev) sim.tapeOffer = null;
       detachPart(ev.part, raftX, waterBase);
     }
+  }
+
+  // Panzertape-Button ein-/ausblenden
+  const tapeBtn = $("tape-btn");
+  if (sim.tapeOffer && !sim.tapeOffer.done && sim.phase === "float") {
+    tapeBtn.classList.remove("hidden");
+    tapeBtn.classList.toggle("empty", sim.tapeCharges <= 0);
+    tapeBtn.textContent =
+      sim.tapeCharges > 0
+        ? `🩹 PANZERTAPE DRAUF! (${sim.tapeCharges})`
+        : "🩹 Panzertape liegt im Auto…";
+  } else {
+    tapeBtn.classList.add("hidden");
+  }
+
+  // Der Affe auf der Taube verliert gelegentlich eine Banane
+  if (Math.random() < dt * 0.12) {
+    const bx = ((performance.now() / 60) % (W + 160)) - 80;
+    if (bx > 0 && bx < W) {
+      sim.particles.push({
+        x: bx,
+        y: H * 0.28,
+        vx: (Math.random() - 0.5) * 20,
+        vy: 30,
+        life: 2.2,
+        r: 5,
+        type: "banana",
+      });
+    }
+  }
+
+  // Bei bedenklicher Schräglage hat Brudi eine Erklärung parat
+  if (!sim.tiltQuoteDone && sim.phase === "float" && Math.abs(sim.tilt) > 0.32) {
+    sim.tiltQuoteDone = true;
+    showBanner("Brudi: „Das ist kein Kentern, ich verlagere den Schwerpunkt.“", false, 2400);
   }
 
   // Möwe. Einfach so.
@@ -518,6 +588,7 @@ function update(dt: number) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     if (p.type === "drop") p.vy += 600 * dt;
+    if (p.type === "banana") p.vy += 260 * dt;
   }
   sim.particles = sim.particles.filter((p: any) => p.life > 0);
 
@@ -530,6 +601,24 @@ function update(dt: number) {
     `↺ Neigung: <b>${Math.round(Math.abs(sim.tilt) * 57)}°</b> · 🌊 Wasser im Floß: <b>${Math.round(Math.min(1, sim.swamp) * 100)}%</b>`;
 }
 
+/* ---------- Panzertape ---------- */
+
+// Der eine aktive Moment der Fahrt: rechtzeitig klicken, Teil retten.
+export function tryTape() {
+  const ev = sim.tapeOffer;
+  if (!ev || ev.done || sim.phase !== "float") return;
+  if (sim.tapeCharges <= 0) {
+    showBanner("Das Panzertape liegt natürlich noch im Auto. 🚗", true, 2200);
+    sim.tapeOffer = null;
+    return;
+  }
+  sim.tapeCharges--;
+  sim.tapeUsed++;
+  ev.done = true;
+  sim.tapeOffer = null;
+  showBanner("🩹 Fachgerechte Reparatur: zwei Lagen Tape, keine Rückfragen.", false, 2400);
+}
+
 /* ---------- Endscreen ---------- */
 
 function endTest(won: boolean) {
@@ -540,10 +629,41 @@ function endTest(won: boolean) {
   $("banner").classList.add("hidden");
   const st = sim.main;
   const meters = Math.min(GOAL_M, Math.round(sim.dist));
+
+  // Lore-Badges: was hat die Fahrt überlebt?
+  const finalParts = st ? st.parts : [];
+  const badges: string[] = [];
+  let bonus = 0;
+  if (won) {
+    if (finalParts.some((p) => p.def.id === "topfi")) {
+      badges.push("🍲 Topfi ist geblieben (+200)");
+      bonus += 200;
+    }
+    if (finalParts.some((p) => p.fifth)) {
+      badges.push("🛢️ Das 5. Fass — physikalisches Wunder bestätigt (+250)");
+      bonus += 250;
+    }
+    if (finalParts.some((p) => p.def.id === "strudel" && !p.broken)) {
+      badges.push("🥧 Apfelstrudel Inside (+100)");
+      bonus += 100;
+    }
+    if (!sim.brokeOff.length && !sim.chaosEvents.some((e: any) => e.done)) {
+      badges.push("💯 0,1 % Floß-Meta — kein Teil verloren (+300)");
+      bonus += 300;
+    }
+  }
+  if (sim.tapeUsed > 0) {
+    badges.push(`🩹 Fachgerecht repariert (${sim.tapeUsed}×, +${sim.tapeUsed * 100})`);
+    bonus += sim.tapeUsed * 100;
+  }
+
   const score = Math.max(
     0,
-    Math.round(meters * 2 + (st ? st.parts.length * 15 : 0) + sim.comfort * 40 + (won ? 500 : 0)),
+    Math.round(
+      meters * 2 + (st ? st.parts.length * 15 : 0) + sim.comfort * 40 + (won ? 500 : 0) + bonus,
+    ),
   );
+  $("end-badges").innerHTML = badges.map((b) => `<span class="badge">${b}</span>`).join("");
 
   const card = document.querySelector(".end-card")!;
   card.className = "end-card " + (won ? "won" : "lost");

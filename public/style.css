@@ -375,6 +375,66 @@ h2 {
   }
 }
 
+.tape-btn {
+  position: absolute;
+  bottom: 9%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 16px 30px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  border: 3px solid #ffd24a;
+  border-radius: 14px;
+  background: #4a4a52;
+  color: #ffd24a;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+  animation: tapeIn 0.25s ease;
+}
+
+.tape-btn:hover {
+  filter: brightness(1.2);
+}
+
+.tape-btn.empty {
+  opacity: 0.6;
+  border-color: #8a8a92;
+  color: #d0d0d6;
+}
+
+@keyframes tapeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.end-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.end-badges:empty {
+  display: none;
+}
+
+.end-badges .badge {
+  background: var(--card2);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+}
+
 .banner {
   position: absolute;
   top: 38%;

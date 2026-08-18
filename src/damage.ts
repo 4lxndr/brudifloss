@@ -22,6 +22,7 @@ export function detachPart(part: PlacedPart, raftX: number, waterBase: number, s
   const toDrifter = (p: PlacedPart) =>
     sim.drifters.push({
       def: p.def,
+      fifth: p.fifth,
       dx: (p.col - st.minCol + p.def.w / 2) * CT - st.cmx,
       vx: ((p.col - st.minCol + p.def.w / 2) * CT < st.cmx ? -1 : 1) * (30 + Math.random() * 35),
       wob: Math.random() * 10,
@@ -32,7 +33,17 @@ export function detachPart(part: PlacedPart, raftX: number, waterBase: number, s
   for (const ce of sim.chaosEvents) if (ce.part === part) ce.done = true;
   spawnSplash(raftX + (part.col - st.minCol + part.def.w / 2) * CT - st.cmx, waterBase, 25, true);
 
-  if (!silent) {
+  if (part.fifth) {
+    setTimeout(
+      () =>
+        showBanner(
+          "Das 5. Fass ist rausgefallen. Damit konnte wirklich NIEMAND rechnen. 🛢️",
+          true,
+          3000,
+        ),
+      silent ? 1200 : 0,
+    );
+  } else if (!silent) {
     const msgs = [
       `„${part.def.name}“ hat sich VERABSCHIEDET! 🪢`,
       `${part.def.name} war offenbar nur DEKO-verknotet! 🫠`,

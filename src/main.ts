@@ -5,12 +5,13 @@
 
 import { $ } from "./config";
 import { initBuilderInput, placed, renderBuild } from "./builder";
-import { backToBuild, startTest } from "./sim";
+import { backToBuild, startTest, tryTape } from "./sim";
 import { sim } from "./state";
 import { PARTS } from "./parts/index";
 
 $("start-btn").addEventListener("click", startTest);
 $("retry-btn").addEventListener("click", backToBuild);
+$("tape-btn").addEventListener("click", tryTape);
 
 initBuilderInput();
 renderBuild();

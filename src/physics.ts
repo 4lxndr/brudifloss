@@ -101,7 +101,8 @@ export function buildStructure(parts: PlacedPart[]): Structure {
         part: p,
         x: (c - minCol + 0.5) * CT,
         hb: Hpx - (r - minRow + 1) * CT, // Höhe der Zell-Unterkante über Strukturboden
-        cap: p.def.buoy / (p.def.w * p.def.h),
+        // Das 5. Fass trägt etwas mehr. Warum? Weil es das 5. Fass ist.
+        cap: (p.def.buoy + (p.fifth ? 15 : 0)) / (p.def.w * p.def.h),
       });
 
   const sc = standCell(parts)!;

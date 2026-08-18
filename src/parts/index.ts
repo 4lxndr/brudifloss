@@ -15,6 +15,7 @@ import * as mikro from "./mikro";
 import * as anker from "./anker";
 import * as topfi from "./topfi";
 import * as strudel from "./strudel";
+import * as tape from "./tape";
 
 const MODULES = [
   brett,
@@ -30,6 +31,7 @@ const MODULES = [
   anker,
   topfi,
   strudel,
+  tape,
 ];
 
 export const PARTS: PartDef[] = MODULES.map((m) => m.def);
