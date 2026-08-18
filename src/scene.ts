@@ -312,14 +312,16 @@ function drawMayflies(ctx: Ctx2D, raftX: number, waterBase: number, layer: numbe
 function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, time: number) {
   for (const cam of sim.cameos || []) {
     const sx = raftX + (cam.atM - (sim.dist || 0)) * PXPM;
-    if (sx < -260 || sx > W + 260) continue;
+    // Ferne Kulisse (Pyramiden) zieht langsamer vorbei — gleiche Parallaxe wie die Bäume
+    const sxFar = raftX + (cam.atM - (sim.dist || 0)) * PXPM * 0.35;
+    if ((sx < -260 || sx > W + 260) && (sxFar < -200 || sxFar > W + 200)) continue;
     const gy = waterBase - 24;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
 
     if (cam.id === "egypt") {
-      // Pyramiden
+      // Pyramiden weit hinten am Horizont (Parallaxe wie die Bäume)
       for (const [ox, s] of [
         [-50, 58],
         [24, 40],
@@ -328,9 +330,9 @@ function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, tim
         ctx.strokeStyle = "#b3945a";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(sx + ox - s, gy);
-        ctx.lineTo(sx + ox + s, gy);
-        ctx.lineTo(sx + ox, gy - s * 1.1);
+        ctx.moveTo(sxFar + ox - s, gy);
+        ctx.lineTo(sxFar + ox + s, gy);
+        ctx.lineTo(sxFar + ox, gy - s * 1.1);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -414,11 +416,17 @@ function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, tim
       ctx.stroke();
       ctx.fillStyle = "#c8102e";
       ctx.beginPath();
-      ctx.roundRect(sx - 22, gy - 86, 44, 30, 5);
+      ctx.roundRect(sx - 24, gy - 88, 48, 32, 5);
       ctx.fill();
-      ctx.fillStyle = "#ffd200";
-      ctx.font = "bold 26px sans-serif";
-      ctx.fillText("M", sx, gy - 62);
+      // Golden Arches: zwei runde Bögen, die sich in der Mitte treffen
+      ctx.strokeStyle = "#ffd200";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(sx - 15, gy - 62);
+      ctx.quadraticCurveTo(sx - 8, gy - 90, sx, gy - 63);
+      ctx.quadraticCurveTo(sx + 8, gy - 90, sx + 15, gy - 62);
+      ctx.stroke();
       // Willkommens-Schild
       ctx.fillStyle = "#fff";
       ctx.fillRect(sx - 52, gy - 50, 104, 14);
