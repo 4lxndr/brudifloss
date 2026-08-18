@@ -127,6 +127,12 @@ h1 {
     filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
 }
 
+.part-tile .icon-canvas {
+    display: block;
+    margin: 0 auto;
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45));
+}
+
 .part-tile .name {
     font-size: 0.62rem;
     color: var(--text);

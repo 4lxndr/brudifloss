@@ -25,6 +25,11 @@ Die Wahrscheinlichkeit, dass das gut geht, wurde von unabhängigen Experten mit 
 - `npm run build` — bauen · `npm run deploy` — bauen + deployen · `npm run typecheck` — Gewissen beruhigen
 - Keine Datenbank. Keine Accounts. Keine Zulassung.
 
+## Credits
+
+Sämtliche Grafiken sind von Hand auf den Canvas gezeichnet — inklusive des
+leicht schimmeligen Topfs. Keine Sprite-Packs, keine Emojis (fast), kein Stil-Mix.
+
 ## Lizenz
 
 [WTFPL](LICENSE) — Do What The Fuck You Want To Public License. Die Lizenzbedingungen

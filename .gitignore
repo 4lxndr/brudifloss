@@ -13,6 +13,6 @@ public/game.js
 .idea/
 .vscode/
 
-# Sonstiges
-*.png
+# Sonstiges (Screenshots im Projekt-Root; public/assets/ bleibt getrackt)
+/*.png
 *.log
