@@ -192,47 +192,7 @@ export function draw() {
 
   // Der Ziel-Steg
   const goalX = raftX + (GOAL_M - sim.dist) * PXPM;
-  if (goalX < W + 260) {
-    const gy = waterBase - 26;
-    ctx.fillStyle = "#6e4620";
-    for (const px of [goalX + 20, goalX + 90, goalX + 160]) ctx.fillRect(px, gy, 10, 60);
-    ctx.fillStyle = "#8a5a2b";
-    ctx.fillRect(goalX, gy - 12, 220, 14);
-    ctx.strokeStyle = "#5c3a18";
-    ctx.strokeRect(goalX, gy - 12, 220, 14);
-    ctx.font = "30px serif";
-    ctx.textAlign = "center";
-    ctx.fillText("🏁", goalX + 30, gy - 20);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 13px sans-serif";
-    ctx.fillText("ZIEL-STEG", goalX + 120, gy - 22);
-
-    // Sehr selten: zwei Beamte warten am Steg. Routinekontrolle.
-    if (sim.blizzcon) {
-      for (const ox of [180, 205]) {
-        const px = goalX + ox;
-        // Anzug
-        ctx.fillStyle = "#22242c";
-        ctx.beginPath();
-        ctx.roundRect(px - 6, gy - 40, 12, 28, 3);
-        ctx.fill();
-        // Kopf + Sonnenbrille
-        ctx.fillStyle = "#eab68f";
-        ctx.beginPath();
-        ctx.arc(px, gy - 46, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#111";
-        ctx.fillRect(px - 5, gy - 48, 10, 3);
-      }
-      // Handschellen beim linken Beamten
-      ctx.strokeStyle = "#c0c6cc";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(goalX + 174, gy - 16, 3, 0, Math.PI * 2);
-      ctx.arc(goalX + 181, gy - 15, 3, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
+  if (goalX < W + 260) drawGoal(ctx, goalX, waterBase);
 
   drawRocket(ctx, raftX, waterBase);
   drawBomber(ctx, raftX, waterBase, W, H, time);
@@ -279,8 +239,51 @@ export function draw() {
   }
 }
 
+// Ziel-Steg samt (sehr seltener) Beamten-Delegation.
+export function drawGoal(ctx: Ctx2D, goalX: number, waterBase: number) {
+  const gy = waterBase - 26;
+  ctx.fillStyle = "#6e4620";
+  for (const px of [goalX + 20, goalX + 90, goalX + 160]) ctx.fillRect(px, gy, 10, 60);
+  ctx.fillStyle = "#8a5a2b";
+  ctx.fillRect(goalX, gy - 12, 220, 14);
+  ctx.strokeStyle = "#5c3a18";
+  ctx.strokeRect(goalX, gy - 12, 220, 14);
+  ctx.font = "30px serif";
+  ctx.textAlign = "center";
+  ctx.fillText("🏁", goalX + 30, gy - 20);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText("ZIEL-STEG", goalX + 120, gy - 22);
+
+  // Sehr selten: zwei Beamte warten am Steg. Routinekontrolle.
+  if (sim.blizzcon) {
+    for (const ox of [180, 205]) {
+      const px = goalX + ox;
+      // Anzug
+      ctx.fillStyle = "#22242c";
+      ctx.beginPath();
+      ctx.roundRect(px - 6, gy - 40, 12, 28, 3);
+      ctx.fill();
+      // Kopf + Sonnenbrille
+      ctx.fillStyle = "#eab68f";
+      ctx.beginPath();
+      ctx.arc(px, gy - 46, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#111";
+      ctx.fillRect(px - 5, gy - 48, 10, 3);
+    }
+    // Handschellen beim linken Beamten
+    ctx.strokeStyle = "#c0c6cc";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(goalX + 174, gy - 16, 3, 0, Math.PI * 2);
+    ctx.arc(goalX + 181, gy - 15, 3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 // Maifliegen: kleine wuselnde weiße Punkte mit Flügelchen, in zwei Tiefenebenen.
-function drawMayflies(ctx: Ctx2D, raftX: number, waterBase: number, layer: number) {
+export function drawMayflies(ctx: Ctx2D, raftX: number, waterBase: number, layer: number) {
   const mf = sim.mayflies;
   if (!mf || mf.intensity <= 0) return;
   const t = performance.now() / 1000;
@@ -309,7 +312,7 @@ function drawMayflies(ctx: Ctx2D, raftX: number, waterBase: number, layer: numbe
 }
 
 // Ufer-Cameos: frühere Abenteuer als Kulisse am Wegesrand.
-function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, time: number) {
+export function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, time: number) {
   for (const cam of sim.cameos || []) {
     const sx = raftX + (cam.atM - (sim.dist || 0)) * PXPM;
     // Ferne Kulisse (Pyramiden) zieht langsamer vorbei — gleiche Parallaxe wie die Bäume
@@ -418,14 +421,14 @@ function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, tim
       ctx.beginPath();
       ctx.roundRect(sx - 24, gy - 88, 48, 32, 5);
       ctx.fill();
-      // Golden Arches: zwei runde Bögen, die sich in der Mitte treffen
+      // Golden Arches: zwei saubere Halbkreis-Bögen, nahtlos verbunden
       ctx.strokeStyle = "#ffd200";
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 5.5;
       ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.moveTo(sx - 15, gy - 62);
-      ctx.quadraticCurveTo(sx - 8, gy - 90, sx, gy - 63);
-      ctx.quadraticCurveTo(sx + 8, gy - 90, sx + 15, gy - 62);
+      ctx.arc(sx - 8, gy - 66, 8, Math.PI, 0);
+      ctx.arc(sx + 8, gy - 66, 8, Math.PI, 0);
       ctx.stroke();
       // Willkommens-Schild
       ctx.fillStyle = "#fff";
@@ -461,7 +464,7 @@ function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, tim
 }
 
 // Der berühmte Affe. Wiederverwendbar für Taube und Regenschirm.
-function drawMonkey(ctx: Ctx2D, s: number) {
+export function drawMonkey(ctx: Ctx2D, s: number) {
   ctx.save();
   ctx.scale(s, s);
   // Beine klammern
@@ -510,7 +513,7 @@ function drawMonkey(ctx: Ctx2D, s: number) {
 }
 
 // Ein viel zu großer Affe auf einer sichtbar überforderten Taube.
-function drawMonkeyPigeon(ctx: Ctx2D, W: number, H: number) {
+export function drawMonkeyPigeon(ctx: Ctx2D, W: number, H: number) {
   const t = performance.now();
   const x = ((t / 60) % (W + 160)) - 80;
   const y = H * 0.28 + Math.sin(t / 400) * 12;
@@ -561,7 +564,7 @@ function drawMonkeyPigeon(ctx: Ctx2D, W: number, H: number) {
 }
 
 // Der zweite Affe: hängt am roten Regenschirm und schwebt majestätisch vorbei.
-function drawUmbrellaMonkey(ctx: Ctx2D, raftX: number, W: number, H: number) {
+export function drawUmbrellaMonkey(ctx: Ctx2D, raftX: number, W: number, H: number) {
   const um = sim.umbrellaMonkey;
   if (!um) return;
   const sx = raftX + (um.atM - (sim.dist || 0)) * 10 * 0.5;
@@ -610,7 +613,7 @@ function drawUmbrellaMonkey(ctx: Ctx2D, raftX: number, W: number, H: number) {
   ctx.restore();
 }
 
-function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+export function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
   const st = sim.main;
   if (!st) return;
 
@@ -691,7 +694,7 @@ function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: numbe
   ctx.restore();
 }
 
-function drawDrifters(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+export function drawDrifters(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
   for (const dr of sim.drifters) {
     const x = raftX + dr.dx;
     const y = sim.phase === "drop" ? waterBase - 40 + sim.dropY : waterBase + waveAt(x, time);
@@ -708,7 +711,7 @@ function drawDrifters(ctx: Ctx2D, raftX: number, waterBase: number, time: number
   }
 }
 
-function drawPoliceBoat(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+export function drawPoliceBoat(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
   if (!sim.police || !sim.police.announced) return;
   const po = sim.police;
   const bx = -180 + (raftX - 250 + 180) * po.approach;
@@ -834,7 +837,7 @@ function drawPoliceBoat(ctx: Ctx2D, raftX: number, waterBase: number, time: numb
   }
 }
 
-function drawRocket(ctx: Ctx2D, raftX: number, waterBase: number) {
+export function drawRocket(ctx: Ctx2D, raftX: number, waterBase: number) {
   if (!sim.rocket || !sim.rocket.fired || sim.rocket.exploded) return;
   const p = Math.min(1, sim.rocket.prog);
   const rx = raftX + 950 * (1 - p);
@@ -913,7 +916,7 @@ function drawRocket(ctx: Ctx2D, raftX: number, waterBase: number) {
   }
 }
 
-function drawBomber(
+export function drawBomber(
   ctx: Ctx2D,
   raftX: number,
   waterBase: number,
@@ -1006,7 +1009,7 @@ function drawBomber(
   }
 }
 
-function drawExplosion(ctx: Ctx2D, waterBase: number) {
+export function drawExplosion(ctx: Ctx2D, waterBase: number) {
   // Atompilz nach der Detonation
   if (sim.nukeHit && sim.explosion) {
     const ex = sim.explosion;

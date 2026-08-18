@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FLOẞ-Galerie (dev)</title>
+    <link rel="icon" href="https://cdn.7tv.app/emote/01KW5E35D61ZQKH314JDR4DZCD/1x.avif" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0e0e1a;
+        color: #efeff5;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin-bottom: 4px;
+      }
+      p.sub {
+        color: #9a9ab0;
+        font-size: 0.85rem;
+        margin-bottom: 20px;
+      }
+      #gallery-root {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .g-item {
+        background: linear-gradient(180deg, #2a6ac7 0%, #a8d8f0 70%, #1e78c8 70%, #08285a 100%);
+        border: 1px solid #33334f;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .g-item canvas {
+        display: block;
+      }
+      .g-label {
+        background: #1b1b2e;
+        padding: 6px 10px;
+        font-size: 0.75rem;
+        color: #9a9ab0;
+        border-top: 1px solid #33334f;
+      }
+      .gallery-denied {
+        font-size: 1.1rem;
+        color: #9a9ab0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎨 FLOẞ-Galerie</h1>
+    <p class="sub">Alle handgezeichneten Elemente auf einen Blick — animiert, nur im Dev-Modus.</p>
+    <div id="gallery-root"></div>
+    <script src="game.js"></script>
+  </body>
+</html>

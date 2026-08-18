@@ -8,21 +8,27 @@ import { initBuilderInput, placed, renderBuild } from "./builder";
 import { backToBuild, startTest, tryTape } from "./sim";
 import { sim } from "./state";
 import { PARTS } from "./parts/index";
+import { initGallery } from "./gallery";
 
-$("start-btn").addEventListener("click", startTest);
-$("retry-btn").addEventListener("click", backToBuild);
-$("tape-btn").addEventListener("click", tryTape);
+if (document.getElementById("gallery-root")) {
+  // gallery.html: nur die Element-Galerie rendern (dev-only)
+  initGallery();
+} else {
+  $("start-btn").addEventListener("click", startTest);
+  $("retry-btn").addEventListener("click", backToBuild);
+  $("tape-btn").addEventListener("click", tryTape);
 
-initBuilderInput();
-renderBuild();
+  initBuilderInput();
+  renderBuild();
 
-// Debug-Zugang nur mit ?debugflos in der URL (für Entwicklung/Tests)
-if (location.search.includes("debugflos")) {
-  (window as any).__flos = {
-    sim,
-    PARTS,
-    get placed() {
-      return placed;
-    },
-  };
+  // Debug-Zugang nur mit ?debugflos in der URL (für Entwicklung/Tests)
+  if (location.search.includes("debugflos")) {
+    (window as any).__flos = {
+      sim,
+      PARTS,
+      get placed() {
+        return placed;
+      },
+    };
+  }
 }
