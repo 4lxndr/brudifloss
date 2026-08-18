@@ -3,7 +3,7 @@
   "private": true,
   "license": "WTFPL",
   "scripts": {
-    "build": "esbuild src/game.ts --bundle --minify --target=es2020 --format=iife --outfile=.build/game.js && javascript-obfuscator .build/game.js --output public/game.js --compact true --control-flow-flattening true --control-flow-flattening-threshold 0.3 --string-array true --string-array-threshold 0.6 --identifier-names-generator hexadecimal",
+    "build": "esbuild src/main.ts --bundle --minify --target=es2020 --format=iife --outfile=.build/game.js && javascript-obfuscator .build/game.js --output public/game.js --compact true --control-flow-flattening true --control-flow-flattening-threshold 0.3 --string-array true --string-array-threshold 0.6 --identifier-names-generator hexadecimal",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\" \"public/*.{html,css}\" \"*.{json,md,mjs}\"",

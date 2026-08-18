@@ -1,0 +1,762 @@
+/* Das Fluss-Rendering: Himmel, Ufer, Wasser, Floß, Brudi, Gegner, Effekte. */
+
+import type { Ctx2D } from "./types";
+import { CT, FACE, GOAL_M, PXPM } from "./config";
+import { canvas, sim, waveAt } from "./state";
+import { drawPartRect } from "./painters";
+
+export function draw() {
+  const c = canvas(),
+    ctx = c.getContext("2d")!;
+  const W = c.width / devicePixelRatio,
+    H = c.height / devicePixelRatio;
+  const shx = (Math.random() - 0.5) * sim.shake * 16;
+  const shy = (Math.random() - 0.5) * sim.shake * 16;
+  ctx.setTransform(
+    devicePixelRatio,
+    0,
+    0,
+    devicePixelRatio,
+    shx * devicePixelRatio,
+    shy * devicePixelRatio,
+  );
+
+  const time = sim.t;
+  const waterBase = H * 0.62;
+  const raftX = W * 0.44;
+
+  // Himmel
+  const sky = ctx.createLinearGradient(0, 0, 0, waterBase);
+  sky.addColorStop(0, "#2a6ac7");
+  sky.addColorStop(1, "#a8d8f0");
+  ctx.fillStyle = sky;
+  ctx.fillRect(-20, -20, W + 40, waterBase + 60);
+
+  // Sonne, Wolken, Möwe
+  ctx.fillStyle = "#ffe17a";
+  ctx.beginPath();
+  ctx.arc(W * 0.85, H * 0.13, 34, 0, Math.PI * 2);
+  ctx.fill();
+  const cloudAt = (cx: number, cy: number, s: number) => {
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.22, cy, s * 0.2, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.48, cy - s * 0.14, s * 0.26, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.74, cy - s * 0.02, s * 0.19, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(220,230,240,0.9)";
+    ctx.beginPath();
+    ctx.ellipse(cx + s * 0.48, cy + s * 0.1, s * 0.44, s * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  cloudAt(((performance.now() / 120) % (W + 260)) - 130, H * 0.12, 110);
+  cloudAt(((performance.now() / 180 + 300) % (W + 260)) - 130, H * 0.22, 85);
+  cloudAt(((performance.now() / 150 + 600) % (W + 260)) - 130, H * 0.07, 65);
+  ctx.font = "22px serif";
+  ctx.fillText(
+    "🕊️",
+    ((performance.now() / 60) % (W + 100)) - 50,
+    H * 0.3 + Math.sin(performance.now() / 400) * 12,
+  );
+
+  // Ufer: Hügel + Bäume ziehen vorbei (Parallaxe)
+  const scroll = (sim.dist || 0) * PXPM;
+  ctx.fillStyle = "#2e6b45";
+  ctx.beginPath();
+  ctx.moveTo(-20, waterBase + 10);
+  for (let x = -20; x <= W + 20; x += 16) {
+    ctx.lineTo(
+      x,
+      waterBase -
+        42 +
+        Math.sin((x + scroll * 0.35) * 0.008) * 16 +
+        Math.sin((x + scroll * 0.35) * 0.02) * 6,
+    );
+  }
+  ctx.lineTo(W + 20, waterBase + 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  const treeGap = 110,
+    treeOff = scroll * 0.35;
+  for (let x = -(treeOff % treeGap) - treeGap; x < W + treeGap; x += treeGap) {
+    const idx = Math.round((x + treeOff) / treeGap);
+    const size = 30 + ((idx * 37) % 22);
+    const tx = x + ((idx * 53) % 30);
+    const ty = waterBase - 22 + ((idx * 29) % 10);
+    const green = ["#2f7d4a", "#3c9159", "#27693e"][((idx % 3) + 3) % 3];
+    // Stamm
+    ctx.fillStyle = "#6e4a2a";
+    ctx.fillRect(tx - size * 0.06, ty - size * 0.24, size * 0.12, size * 0.26);
+    ctx.fillStyle = green;
+    if (idx % 2 === 0) {
+      // Tanne: drei gestaffelte Dreiecke
+      for (let i = 0; i < 3; i++) {
+        const ly = ty - size * (0.2 + i * 0.3);
+        const lw = size * (0.5 - i * 0.11);
+        ctx.beginPath();
+        ctx.moveTo(tx - lw, ly);
+        ctx.lineTo(tx + lw, ly);
+        ctx.lineTo(tx, ly - size * 0.42);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else {
+      // Laubbaum: Kronen-Kreise
+      ctx.beginPath();
+      ctx.arc(tx, ty - size * 0.62, size * 0.34, 0, Math.PI * 2);
+      ctx.arc(tx - size * 0.2, ty - size * 0.45, size * 0.24, 0, Math.PI * 2);
+      ctx.arc(tx + size * 0.2, ty - size * 0.45, size * 0.24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Struktur + Brudi + Treibgut (vor dem Wasser gezeichnet → schimmert durch)
+  drawStructure(ctx, raftX, waterBase, time);
+  drawDrifters(ctx, raftX, waterBase, time);
+  if (sim.freeBrudi) {
+    ctx.save();
+    ctx.translate(sim.freeBrudi.x, sim.freeBrudi.y);
+    drawBrudi(ctx, 0, 20, time, true);
+    ctx.restore();
+  }
+
+  // Wasser
+  for (const [alpha, speed, off] of [
+    [0.75, 1, 0],
+    [0.45, 1.5, 30],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 8) {
+      ctx.lineTo(x, waterBase + off * 0.3 + waveAt(x + off * 40, time * speed));
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, waterBase, 0, H);
+    grad.addColorStop(0, `rgba(30, 120, 200, ${alpha})`);
+    grad.addColorStop(1, `rgba(8, 40, 90, ${alpha})`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Felsen ragen aus dem Wasser (fest verankert — Felsen wackeln nicht)
+  for (const rock of sim.rocks || []) {
+    const sx = raftX + (rock.m - sim.dist) * PXPM;
+    if (sx < -120 || sx > W + 120) continue;
+    const sy = waterBase + 8;
+    ctx.fillStyle = rock.hit ? "#565b63" : "#6d737d";
+    ctx.beginPath();
+    ctx.moveTo(sx - rock.size, sy + 14);
+    ctx.quadraticCurveTo(
+      sx - rock.size * 0.6,
+      sy - rock.size,
+      sx + rock.size * 0.15,
+      sy - rock.size * 0.95,
+    );
+    ctx.quadraticCurveTo(sx + rock.size * 0.8, sy - rock.size * 0.6, sx + rock.size, sy + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#464b52";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 8, rock.size * 1.1, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawPoliceBoat(ctx, raftX, waterBase, time);
+
+  // Gischt in Stromschnellen
+  for (const z of sim.zones || []) {
+    const zs = raftX + (z.s - sim.dist) * PXPM;
+    const ze = raftX + (z.e - sim.dist) * PXPM;
+    if (ze < 0 || zs > W) continue;
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    for (let x = Math.max(0, zs); x < Math.min(W, ze); x += 18) {
+      if (Math.random() < 0.6) {
+        ctx.beginPath();
+        ctx.arc(
+          x + Math.random() * 12,
+          waterBase + waveAt(x, time) + Math.random() * 6,
+          2 + Math.random() * 4,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+  }
+
+  // Der Ziel-Steg
+  const goalX = raftX + (GOAL_M - sim.dist) * PXPM;
+  if (goalX < W + 260) {
+    const gy = waterBase - 26;
+    ctx.fillStyle = "#6e4620";
+    for (const px of [goalX + 20, goalX + 90, goalX + 160]) ctx.fillRect(px, gy, 10, 60);
+    ctx.fillStyle = "#8a5a2b";
+    ctx.fillRect(goalX, gy - 12, 220, 14);
+    ctx.strokeStyle = "#5c3a18";
+    ctx.strokeRect(goalX, gy - 12, 220, 14);
+    ctx.font = "30px serif";
+    ctx.textAlign = "center";
+    ctx.fillText("🏁", goalX + 30, gy - 20);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("ZIEL-STEG", goalX + 120, gy - 22);
+  }
+
+  drawRocket(ctx, raftX, waterBase);
+  drawBomber(ctx, raftX, waterBase, W, H, time);
+  drawExplosion(ctx, waterBase);
+
+  // Partikel
+  for (const p of sim.particles) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    if (p.type === "bubble") {
+      ctx.strokeStyle = "#bfe6ff";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "#cfeaff";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Nuklearer Weißblitz
+  if (sim.nukeFlash > 0) {
+    ctx.globalAlpha = Math.min(1, sim.nukeFlash);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-40, -40, W + 80, H + 80);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+  const st = sim.main;
+  if (!st) return;
+
+  const surfaceY = waterBase + waveAt(raftX, time);
+  const d =
+    sim.phase === "sinking" || sim.phase === "sunk" || sim.phase === "capsize"
+      ? sim.dEq + sim.sinkDepth
+      : sim.dEq;
+
+  const pivotX = raftX;
+  const pivotY = sim.phase === "drop" ? waterBase - 40 + sim.dropY : surfaceY;
+
+  ctx.save();
+  ctx.translate(pivotX, pivotY);
+  ctx.rotate(sim.phase === "drop" ? Math.sin(performance.now() / 200) * 0.05 : sim.tilt);
+
+  // lokales Koordinatensystem: (0,0) = Drehpunkt (Massezentrum-x auf Wasserlinie)
+  const offX = -st.cmx;
+  const offY = sim.phase === "drop" ? -st.Hpx + 20 : d - st.Hpx;
+
+  for (const p of st.parts) {
+    const x = offX + (p.col - st.minCol) * CT;
+    const y = offY + (p.row - st.minRow) * CT;
+    drawPartRect(ctx, p.def, x, y, CT, p.broken);
+  }
+
+  // Brudi auf der Standfläche (fällt bei Kenterung separat)
+  if (!sim.freeBrudi) {
+    drawBrudi(ctx, offX + st.standX, offY + st.standY, time, false);
+  }
+
+  // Möwe, sein neuer Mitbewohner
+  if (sim.gull && sim.gull.landed) {
+    ctx.font = "24px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("🕊️", offX + st.standX + 42, offY + st.standY + Math.sin(time * 3) * 2);
+  }
+
+  ctx.restore();
+}
+
+function drawDrifters(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+  for (const dr of sim.drifters) {
+    const x = raftX + dr.dx;
+    const y = sim.phase === "drop" ? waterBase - 40 + sim.dropY : waterBase + waveAt(x, time);
+    const cs = CT * 0.8;
+    const w = dr.def.w * cs,
+      h = dr.def.h * cs;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(time * 2 + dr.wob) * 0.18);
+    // Halb eingetaucht davontreiben — als richtige Zeichnung, nicht als Emoji
+    drawPartRect(ctx, dr.def, -w / 2, -h + h * 0.3, cs);
+    ctx.restore();
+  }
+}
+
+function drawPoliceBoat(ctx: Ctx2D, raftX: number, waterBase: number, time: number) {
+  if (!sim.police || !sim.police.announced) return;
+  const po = sim.police;
+  const bx = -180 + (raftX - 250 + 180) * po.approach;
+  const by = waterBase + waveAt(bx, time) * 0.6;
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(Math.sin(time * 2.2) * 0.03);
+  ctx.lineJoin = "round";
+
+  // Bugwelle & Heckgischt
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.beginPath();
+  ctx.ellipse(70, 12, 14 + Math.sin(time * 8) * 3, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(-66, 12, 10 + Math.cos(time * 7) * 2, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rumpf: dunkelblau mit spitzem Bug
+  ctx.fillStyle = "#243a5e";
+  ctx.strokeStyle = "#16233a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-62, -8);
+  ctx.lineTo(52, -8);
+  ctx.quadraticCurveTo(72, -7, 78, 2);
+  ctx.quadraticCurveTo(70, 14, 50, 15);
+  ctx.lineTo(-50, 15);
+  ctx.quadraticCurveTo(-64, 12, -62, -8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Weißer Zierstreifen mit Schriftzug
+  ctx.fillStyle = "#e8edf5";
+  ctx.beginPath();
+  ctx.moveTo(-58, -6);
+  ctx.lineTo(56, -6);
+  ctx.quadraticCurveTo(66, -5, 70, 0);
+  ctx.lineTo(-59, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#16233a";
+  ctx.font = "bold 9px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("POLIZEI", -6, -3);
+
+  // Kajüte mit schräger Scheibe
+  ctx.fillStyle = "#dde4ec";
+  ctx.strokeStyle = "#9aa7b5";
+  ctx.beginPath();
+  ctx.moveTo(-38, -8);
+  ctx.lineTo(-38, -30);
+  ctx.lineTo(6, -30);
+  ctx.lineTo(18, -8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Fenster
+  ctx.fillStyle = "#8fd0e8";
+  ctx.beginPath();
+  ctx.moveTo(-2, -26);
+  ctx.lineTo(10, -10);
+  ctx.lineTo(-2, -10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(-32, -26, 22, 12);
+  // Antenne
+  ctx.strokeStyle = "#16233a";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-32, -30);
+  ctx.lineTo(-36, -44);
+  ctx.stroke();
+
+  // Blaulichtbalken mit Glow
+  const blue = Math.floor(performance.now() / 200) % 2 === 0;
+  ctx.fillStyle = "#16233a";
+  ctx.fillRect(-20, -36, 22, 5);
+  ctx.fillStyle = blue ? "#2ea8ff" : "#ff4d4d";
+  ctx.fillRect(blue ? -20 : -9, -36, 11, 5);
+  const glow = ctx.createRadialGradient(-9, -34, 2, -9, -34, 26);
+  glow.addColorStop(0, blue ? "rgba(46,168,255,0.5)" : "rgba(255,77,77,0.5)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(-9, -34, 26, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Bordkanone auf Drehsockel
+  ctx.fillStyle = "#16233a";
+  ctx.beginPath();
+  ctx.arc(34, -8, 6, Math.PI, 0);
+  ctx.fill();
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(34, -12);
+  ctx.lineTo(54, -22);
+  ctx.stroke();
+  // Mündung
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(50, -20);
+  ctx.lineTo(55, -22.5);
+  ctx.stroke();
+  ctx.restore();
+
+  // Das Geschoss fliegt im Bogen aufs Floß
+  if (po.shot && !po.done) {
+    const p = Math.min(1, po.shotProg);
+    const sx0 = bx + 46,
+      sy0 = by - 18;
+    const sx = sx0 + (raftX - sx0) * p;
+    const sy = sy0 + (waterBase - 45 - sy0) * p - Math.sin(Math.PI * p) * 90;
+    ctx.fillStyle = "#222";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,180,60,0.6)";
+    ctx.beginPath();
+    ctx.arc(sx - 8, sy + 3, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawRocket(ctx: Ctx2D, raftX: number, waterBase: number) {
+  if (!sim.rocket || !sim.rocket.fired || sim.rocket.exploded) return;
+  const p = Math.min(1, sim.rocket.prog);
+  const rx = raftX + 950 * (1 - p);
+  const ry = -60 + p * (waterBase - 20);
+  ctx.save();
+  ctx.translate(rx, ry);
+  // Flugrichtung: von rechts oben aufs Floß (Zeichnung mit Nase nach oben)
+  ctx.rotate(Math.atan2(waterBase + 40, -950) + Math.PI / 2);
+  // Flamme
+  ctx.fillStyle = "#ff9b2f";
+  ctx.beginPath();
+  ctx.moveTo(-6, 22);
+  ctx.quadraticCurveTo(0, 40 + Math.random() * 8, 6, 22);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffe17a";
+  ctx.beginPath();
+  ctx.moveTo(-3, 22);
+  ctx.quadraticCurveTo(0, 32 + Math.random() * 5, 3, 22);
+  ctx.closePath();
+  ctx.fill();
+  // Finnen
+  ctx.fillStyle = "#c0392b";
+  ctx.beginPath();
+  ctx.moveTo(-8, 10);
+  ctx.lineTo(-16, 24);
+  ctx.lineTo(-8, 22);
+  ctx.closePath();
+  ctx.moveTo(8, 10);
+  ctx.lineTo(16, 24);
+  ctx.lineTo(8, 22);
+  ctx.closePath();
+  ctx.fill();
+  // Körper
+  ctx.fillStyle = "#e8edf2";
+  ctx.strokeStyle = "#8a95a1";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -26);
+  ctx.quadraticCurveTo(9, -12, 9, 4);
+  ctx.lineTo(9, 22);
+  ctx.lineTo(-9, 22);
+  ctx.lineTo(-9, 4);
+  ctx.quadraticCurveTo(-9, -12, 0, -26);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Spitze
+  ctx.fillStyle = "#c0392b";
+  ctx.beginPath();
+  ctx.moveTo(0, -26);
+  ctx.quadraticCurveTo(8, -15, 9, -6);
+  ctx.lineTo(-9, -6);
+  ctx.quadraticCurveTo(-8, -15, 0, -26);
+  ctx.closePath();
+  ctx.fill();
+  // Bullauge
+  ctx.fillStyle = "#9fd4e8";
+  ctx.strokeStyle = "#8a95a1";
+  ctx.beginPath();
+  ctx.arc(0, 4, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = `rgba(255,${140 + Math.random() * 80},40,${0.5 + Math.random() * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(
+      rx + 24 + Math.random() * 26,
+      ry - 24 - Math.random() * 26,
+      3 + Math.random() * 6,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+}
+
+function drawBomber(
+  ctx: Ctx2D,
+  raftX: number,
+  waterBase: number,
+  W: number,
+  H: number,
+  time: number,
+) {
+  if (!sim.nuke || sim.nuke.bomber <= 0 || sim.nuke.detonated) return;
+  const nk = sim.nuke;
+  const bx = -120 + (W + 240) * nk.bomber;
+  const by = H * 0.1 + Math.sin(time * 1.5) * 4;
+  // Prozeduraler Bomber (Nase nach rechts)
+  ctx.save();
+  ctx.translate(bx, by);
+  // Seitenleitwerk
+  ctx.fillStyle = "#4c5243";
+  ctx.strokeStyle = "#343a2e";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-30, -7);
+  ctx.lineTo(-52, -26);
+  ctx.lineTo(-42, -26);
+  ctx.lineTo(-20, -7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Rumpf
+  ctx.fillStyle = "#59604f";
+  ctx.beginPath();
+  ctx.moveTo(-48, 0);
+  ctx.quadraticCurveTo(-52, -8, -36, -9);
+  ctx.lineTo(28, -9);
+  ctx.quadraticCurveTo(50, -8, 56, 0);
+  ctx.quadraticCurveTo(48, 8, 28, 8);
+  ctx.lineTo(-38, 8);
+  ctx.quadraticCurveTo(-52, 7, -48, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Cockpit-Glas
+  ctx.fillStyle = "#9fd4e8";
+  ctx.beginPath();
+  ctx.moveTo(34, -9);
+  ctx.quadraticCurveTo(48, -8, 53, -2);
+  ctx.lineTo(38, -2);
+  ctx.closePath();
+  ctx.fill();
+  // Tragfläche (leicht nach vorn-unten gepfeilt)
+  ctx.fillStyle = "#515746";
+  ctx.beginPath();
+  ctx.moveTo(10, -2);
+  ctx.lineTo(-24, 14);
+  ctx.lineTo(-8, 16);
+  ctx.lineTo(18, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Triebwerk unter der Tragfläche
+  ctx.fillStyle = "#2e332a";
+  ctx.beginPath();
+  ctx.roundRect(-8, 10, 20, 8, 4);
+  ctx.fill();
+  // Heck-Kennung
+  ctx.fillStyle = "#d8dcc9";
+  ctx.font = "bold 8px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("404", -30, 0);
+  // Rotes Blinklicht auf dem Leitwerk
+  if (Math.floor(performance.now() / 280) % 2) {
+    ctx.fillStyle = "#ff4d4d";
+    ctx.beginPath();
+    ctx.arc(-47, -28, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  if (nk.dropped) {
+    const p = Math.min(1, nk.bombProg);
+    const bombX = raftX + Math.sin(p * 9) * 6;
+    const bombY = H * 0.13 + (waterBase - 50 - H * 0.13) * (p * p);
+    ctx.save();
+    ctx.translate(bombX, bombY);
+    ctx.fillStyle = "#1b1b1b";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#444";
+    ctx.fillRect(-6, -20, 12, 6);
+    ctx.restore();
+  }
+}
+
+function drawExplosion(ctx: Ctx2D, waterBase: number) {
+  // Atompilz nach der Detonation
+  if (sim.nukeHit && sim.explosion) {
+    const ex = sim.explosion;
+    const grow = Math.min(1, (2.4 - ex.life) / 1.4);
+    const alpha = Math.max(0, ex.life / 2.4);
+    ctx.globalAlpha = alpha * 0.9;
+    // Stiel
+    ctx.fillStyle = "#b9a08a";
+    ctx.beginPath();
+    ctx.moveTo(ex.x - 26 * grow, waterBase);
+    ctx.quadraticCurveTo(ex.x - 14 * grow, ex.y - 60 * grow, ex.x - 34 * grow, ex.y - 110 * grow);
+    ctx.lineTo(ex.x + 34 * grow, ex.y - 110 * grow);
+    ctx.quadraticCurveTo(ex.x + 14 * grow, ex.y - 60 * grow, ex.x + 26 * grow, waterBase);
+    ctx.closePath();
+    ctx.fill();
+    // Pilzkappe
+    for (const [ox, oy, r] of [
+      [0, -150, 62],
+      [-52, -132, 40],
+      [52, -132, 40],
+      [-24, -160, 46],
+      [24, -160, 46],
+    ]) {
+      const gradN = ctx.createRadialGradient(
+        ex.x + ox * grow,
+        ex.y + oy * grow,
+        2,
+        ex.x + ox * grow,
+        ex.y + oy * grow,
+        r * grow,
+      );
+      gradN.addColorStop(0, "#ffd27a");
+      gradN.addColorStop(0.5, "#e8934a");
+      gradN.addColorStop(1, "#8d6b52");
+      ctx.fillStyle = gradN;
+      ctx.beginPath();
+      ctx.arc(ex.x + ox * grow, ex.y + oy * grow, r * grow, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Feuerball + gezackter Explosions-Stern
+  if (sim.explosion) {
+    const ex = sim.explosion;
+    const alpha = Math.max(0, ex.life);
+    const grad2 = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, ex.r);
+    grad2.addColorStop(0, `rgba(255,240,150,${alpha})`);
+    grad2.addColorStop(0.5, `rgba(255,120,30,${alpha * 0.8})`);
+    grad2.addColorStop(1, "rgba(255,60,0,0)");
+    ctx.fillStyle = grad2;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI * 2);
+    ctx.fill();
+    const burst = (r: number, color: string, rot: number) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (let i = 0; i < 20; i++) {
+        const ang = (i / 20) * Math.PI * 2 + rot;
+        const rad = i % 2 === 0 ? r : r * 0.55;
+        const px = ex.x + Math.cos(ang) * rad;
+        const py = ex.y + Math.sin(ang) * rad;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    };
+    ctx.globalAlpha = Math.max(0, Math.min(1, ex.life));
+    const bs = 24 + ex.r * 0.35;
+    burst(bs, "#ff7c1f", performance.now() / 900);
+    burst(bs * 0.62, "#ffd23e", -performance.now() / 700);
+    ctx.globalAlpha = 1;
+  }
+}
+
+export function drawBrudi(ctx: Ctx2D, x: number, footY: number, time: number, forcePanic: boolean) {
+  const panic =
+    forcePanic || sim.phase === "sinking" || sim.phase === "sunk" || sim.phase === "capsize";
+  const won = sim.phase === "won";
+  const flail = panic ? Math.sin(performance.now() / 60) * 0.9 : Math.sin(time * 2) * 0.12;
+
+  ctx.save();
+  ctx.translate(x, footY);
+  if (panic) ctx.rotate(Math.sin(performance.now() / 150) * 0.15);
+
+  // Beine
+  ctx.strokeStyle = "#26263c";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-7, 0);
+  ctx.lineTo(-6, -22);
+  ctx.moveTo(7, 0);
+  ctx.lineTo(6, -22);
+  ctx.stroke();
+
+  // Torso (Twitch-lila Hoodie)
+  ctx.fillStyle = "#9146ff";
+  ctx.beginPath();
+  ctx.roundRect(-14, -56, 28, 36, 8);
+  ctx.fill();
+
+  // Arme
+  ctx.strokeStyle = "#9146ff";
+  ctx.lineWidth = 7;
+  const armY = -48;
+  ctx.beginPath();
+  if (panic || won) {
+    ctx.moveTo(-12, armY);
+    ctx.lineTo(-24, armY - 20 + flail * 8);
+    ctx.moveTo(12, armY);
+    ctx.lineTo(24, armY - 20 - flail * 8);
+  } else {
+    ctx.moveTo(-12, armY);
+    ctx.lineTo(-22, armY + 16 + flail * 20);
+    ctx.moveTo(12, armY);
+    ctx.lineTo(22, armY + 16 - flail * 20);
+  }
+  ctx.stroke();
+
+  // Kopf: 7tv-Gesicht
+  const headR = 24;
+  const headY = -56 - headR + 4;
+  ctx.beginPath();
+  ctx.arc(0, headY, headR, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  if (FACE.complete && FACE.naturalWidth) {
+    if (panic) {
+      ctx.translate(0, headY);
+      ctx.rotate(Math.sin(performance.now() / 90) * 0.25);
+      ctx.translate(0, -headY);
+    }
+    ctx.drawImage(FACE, -headR, headY - headR, headR * 2, headR * 2);
+  } else {
+    ctx.fillStyle = "#9146ff";
+    ctx.font = "bold 26px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("B", 0, headY + 9);
+  }
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(0, headY, headR, 0, Math.PI * 2);
+  ctx.strokeStyle = panic ? "#ff5c5c" : "#26263c";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Sprechblase
+  if (panic || won) {
+    ctx.font = "bold 15px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#26263c";
+    ctx.lineWidth = 4;
+    const msg = won ? "EZ Clap 😎" : "ICH KANN NICHT SCHWIMMEN!!";
+    ctx.strokeText(msg, 0, headY - headR - 12);
+    ctx.fillText(msg, 0, headY - headR - 12);
+  }
+
+  ctx.restore();
+}
