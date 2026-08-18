@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FLOẞ-SIMULATOR – Brudivoeller_TV Edition</title>
+    <link rel="icon" href="https://cdn.7tv.app/emote/01KW5E35D61ZQKH314JDR4DZCD/1x.avif" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- ============ BAUPHASE ============ -->
+    <div id="build-screen">
+      <header class="hero">
+        <img
+          class="hero-face bob"
+          src="https://cdn.7tv.app/emote/01KW5E35D61ZQKH314JDR4DZCD/4x.avif"
+          alt="Brudivoeller_TV"
+        />
+        <div>
+          <h1>FLOẞ-SIMULATOR</h1>
+          <p class="subtitle">
+            Brudivoeller_TV Edition &nbsp;·&nbsp; „Früher hieß es Flos. Wir haben dazugelernt.“
+          </p>
+        </div>
+      </header>
+
+      <p class="briefing">
+        Der Chat hat entschieden: Brudi muss <b>600&nbsp;m Wildwasser</b> runter — vorbei an Felsen,
+        durch Stromschnellen, bis zum Ziel-Steg. Steck ihm aus Brettern, Fässern und Gerümpel ein
+        Floß zusammen — aber Achtung: Er wiegt <b>85&nbsp;kg</b>, kann nicht schwimmen (angeblich)
+        und stellt sich <b>oben drauf</b>. Was unten liegt, trägt. Was schief ist, <b>kentert</b>.
+        Was schlampig verknotet ist, <b>fliegt ab</b>.
+      </p>
+
+      <section class="workbench">
+        <h2>
+          🔨 Werkbank
+          <span class="hint"
+            >Klick: bauen · Rechtsklick: abreißen · Teile müssen sich berühren!</span
+          >
+        </h2>
+
+        <div class="tray-row">
+          <div id="palette" class="part-tray"></div>
+          <div class="tools">
+            <button id="erase-btn" class="tool-btn" title="Abreißen-Modus">🧨 Abreißen</button>
+            <button id="clear-btn" class="tool-btn" title="Alles abreißen">🗑️ Alles weg</button>
+          </div>
+        </div>
+        <div id="info-bar" class="info-bar">
+          👆 Wähl oben ein Bauteil und klick es aufs Raster. Qualität der Knoten: fragwürdig.
+        </div>
+
+        <div class="grid-wrap"><canvas id="grid"></canvas></div>
+
+        <div class="stats-row">
+          <div class="stat-chip">⚖️ Gewicht <b id="stat-weight"></b></div>
+          <div class="stat-chip">🎈 Auftrieb <b id="stat-buoy"></b></div>
+          <div class="stat-chip">🛋️ Komfort <b id="stat-comfort"></b></div>
+          <div
+            class="stat-chip"
+            title="Große Flöße ziehen militärische Aufmerksamkeit auf sich. Ist so."
+          >
+            🚀 Zielscheiben-Faktor <b id="stat-rocket"></b>
+          </div>
+          <div class="stat-chip">🤞 Ob's schwimmt? Finden wir raus.</div>
+        </div>
+
+        <button id="start-btn" class="start-btn">🌊 AB IN DEN FLUSS!</button>
+      </section>
+    </div>
+
+    <!-- ============ SCHWIMMTEST ============ -->
+    <div id="test-screen" class="hidden">
+      <div class="test-layout">
+        <div class="canvas-wrap">
+          <canvas id="sea"></canvas>
+          <div id="banner" class="banner hidden"></div>
+          <div id="hud" class="hud"></div>
+          <div id="event-log" class="event-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ENDSCREEN ============ -->
+    <div id="end-screen" class="hidden">
+      <div class="end-card">
+        <img
+          id="end-face"
+          src="https://cdn.7tv.app/emote/01KW5E35D61ZQKH314JDR4DZCD/4x.avif"
+          alt="Brudivoeller_TV"
+        />
+        <h1 id="end-title"></h1>
+        <p id="end-text"></p>
+        <div class="end-score">Seetauglichkeits-Score: <b id="end-score"></b></div>
+        <button id="retry-btn" class="start-btn">🔨 NOCHMAL BAUEN</button>
+      </div>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

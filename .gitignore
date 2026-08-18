@@ -1,0 +1,18 @@
+# Abhängigkeiten
+node_modules/
+
+# Build-Artefakte (public/game.js wird aus src/game.ts generiert)
+.build/
+public/game.js
+
+# Lokale Tool-Caches
+.wrangler/
+.playwright-mcp/
+
+# IDE
+.idea/
+.vscode/
+
+# Sonstiges
+*.png
+*.log
