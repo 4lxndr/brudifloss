@@ -195,7 +195,7 @@ const PARTS: PartDef[] = [
     tough: 5,
     comfort: 1,
     flavor:
-      "Der treueste Topf der Welt. Schwimmt kieloben. Verlässt Brudi NIE. Aber: Das Militär beobachtet Topf-Ansammlungen.",
+      "Der treueste Topf der Welt. Unzerstörbar — sein Knoten leider nicht. Das Militär beobachtet Topf-Ansammlungen.",
   },
   {
     id: "strudel",
@@ -804,11 +804,17 @@ function rocketImpact(raftX, waterBase) {
   const st = sim.main;
   if (st) {
     // Auch hier hilft Festigkeit — gegen eine Rakete allerdings nur bedingt.
-    const doomed = st.parts.filter(
-      (p) => p.def.id !== "topfi" && Math.random() < 1 - (p.def.tough || 1) * 0.07,
-    );
+    // Topfi ist unzerstörbar, aber sein KNOTEN nicht: Er kann abgerissen werden.
+    const doomed = st.parts.filter((p) => Math.random() < 1 - (p.def.tough || 1) * 0.07);
+    const potsGone = doomed.filter((p) => p.def.id === "topfi").length;
     for (const p of doomed) {
       if (sim.main && sim.main.parts.includes(p)) detachPart(p, raftX, waterBase, true);
+    }
+    if (potsGone) {
+      setTimeout(
+        () => showBanner("Die Topfis überleben natürlich – schwimmen jetzt nur woanders. 🍲👋", false, 2600),
+        2200,
+      );
     }
   }
   sim.tilt += (Math.random() < 0.5 ? -1 : 1) * 0.3;
@@ -859,11 +865,17 @@ function policeHit(raftX: number, waterBase: number) {
   showBanner("🚔💥 SIE HABEN WIRKLICH GESCHOSSEN!", true, 3200);
   const st = sim.main;
   if (st) {
-    const doomed = st.parts.filter(
-      (p: PlacedPart) => p.def.id !== "topfi" && Math.random() < 1 - p.def.tough * 0.09,
-    );
+    // Auch Topfi-Knoten halten einer Bordkanone nicht stand (der Topf selbst schon).
+    const doomed = st.parts.filter((p: PlacedPart) => Math.random() < 1 - p.def.tough * 0.09);
+    const potsGone = doomed.filter((p) => p.def.id === "topfi").length;
     for (const p of doomed) {
       if (sim.main && sim.main.parts.includes(p)) detachPart(p, raftX, waterBase, true);
+    }
+    if (potsGone) {
+      setTimeout(
+        () => showBanner("Die Topfis? Unversehrt. Nur… weg. 🍲👋", false, 2400),
+        2200,
+      );
     }
   }
   sim.tilt += (Math.random() < 0.5 ? -1 : 1) * 0.25;
