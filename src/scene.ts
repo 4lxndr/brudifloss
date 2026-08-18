@@ -421,14 +421,15 @@ export function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: numb
       ctx.beginPath();
       ctx.roundRect(sx - 24, gy - 88, 48, 32, 5);
       ctx.fill();
-      // Golden Arches: zwei saubere Halbkreis-Bögen, nahtlos verbunden
+      // Golden Arches: lange Beine außen, das Mitteltal hängt höher
       ctx.strokeStyle = "#ffd200";
       ctx.lineWidth = 5.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.beginPath();
-      ctx.arc(sx - 8, gy - 66, 8, Math.PI, 0);
-      ctx.arc(sx + 8, gy - 66, 8, Math.PI, 0);
+      ctx.moveTo(sx - 16, gy - 58);
+      ctx.quadraticCurveTo(sx - 8, gy - 92, sx, gy - 70);
+      ctx.quadraticCurveTo(sx + 8, gy - 92, sx + 16, gy - 58);
       ctx.stroke();
       // Willkommens-Schild
       ctx.fillStyle = "#fff";
