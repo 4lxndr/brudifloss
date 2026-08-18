@@ -124,18 +124,19 @@ h1 {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-.tray-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
 .part-tray {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  flex: 1;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Info links, Werkzeuge rechts — direkt über dem Raster */
+.control-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 14px;
 }
 
 .part-tile {
@@ -212,12 +213,13 @@ h1 {
 }
 
 .info-bar {
+  flex: 1;
   background: var(--card2);
-  border-radius: 8px;
+  border: 1px solid #2a3455;
+  border-radius: 10px;
   padding: 8px 12px;
   font-size: 0.82rem;
   color: var(--muted);
-  margin-bottom: 12px;
   line-height: 1.4;
   /* Immer exakt zwei Zeilen hoch — egal welches Teil gehovert wird,
      das Raster darunter bleibt an Ort und Stelle. */
@@ -234,13 +236,12 @@ h1 {
 
 .tools {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 h2 {
   font-size: 1.1rem;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -253,19 +254,20 @@ h2 {
 }
 
 .tool-btn {
-  flex: 1;
-  padding: 8px;
-  border: none;
-  border-radius: 8px;
+  padding: 0 16px;
+  border: 1px solid #2a3455;
+  border-radius: 10px;
   cursor: pointer;
-  background: var(--card2);
+  background: linear-gradient(180deg, #202946, #181f38);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .tool-btn:hover {
-  background: #33334f;
+  border-color: var(--accent);
+  filter: brightness(1.15);
 }
 
 .tool-btn.active {
@@ -278,7 +280,7 @@ h2 {
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 16px;
-  padding: 16px;
+  padding: 20px;
   align-self: start;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
@@ -306,10 +308,7 @@ h2 {
 }
 
 .grid-wrap {
-  overflow-x: auto;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: safe center;
+  margin-bottom: 16px;
 }
 
 /* Das Fenster in die Flusswelt */
@@ -327,7 +326,7 @@ h2 {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .stat-chip {
@@ -347,7 +346,7 @@ h2 {
 .mode-row {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .mode-btn {

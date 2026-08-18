@@ -61,13 +61,15 @@ export function drawGrid() {
   if (!c) return;
   const W = COLS * CELL,
     H = ROWS * CELL;
+  // Das Raster füllt die volle Panel-Breite; gezeichnet wird weiter in CELL-Einheiten.
+  c.style.width = "100%";
+  const scale = (c.clientWidth || W) / W;
   const dpr = devicePixelRatio || 1;
-  c.width = W * dpr;
-  c.height = H * dpr;
-  c.style.width = W + "px";
-  c.style.height = H + "px";
+  c.width = Math.round(W * scale * dpr);
+  c.height = Math.round(H * scale * dpr);
+  c.style.height = Math.round(H * scale) + "px";
   const ctx = c.getContext("2d")!;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
   const t = performance.now() / 1000;
 
   // Gebaut wird direkt in der Flusswelt: Himmel oben, Wasser unten.
@@ -280,8 +282,8 @@ export function initBuilderInput() {
   const cellFromEvent = (e: MouseEvent) => {
     const rect = c.getBoundingClientRect();
     return {
-      col: Math.floor((e.clientX - rect.left) / CELL),
-      row: Math.floor((e.clientY - rect.top) / CELL),
+      col: Math.floor(((e.clientX - rect.left) / rect.width) * COLS),
+      row: Math.floor(((e.clientY - rect.top) / rect.height) * ROWS),
     };
   };
   c.addEventListener("mousemove", (e) => {
