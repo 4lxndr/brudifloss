@@ -68,33 +68,89 @@ export function drawGrid() {
   c.style.height = H + "px";
   const ctx = c.getContext("2d")!;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const t = performance.now() / 1000;
 
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = "#141428";
-  ctx.fillRect(0, 0, W, H);
-
-  // Wasserlinien-Hinweis (untere Zone liegt tiefer im Wasser)
+  // Gebaut wird direkt in der Flusswelt: Himmel oben, Wasser unten.
   const wlY = (ROWS - 3) * CELL;
-  const grad = ctx.createLinearGradient(0, wlY, 0, H);
-  grad.addColorStop(0, "rgba(0,140,255,0.06)");
-  grad.addColorStop(1, "rgba(0,140,255,0.16)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, wlY, W, H - wlY);
-  ctx.strokeStyle = "rgba(0,180,255,0.35)";
-  ctx.setLineDash([8, 6]);
+  const sky = ctx.createLinearGradient(0, 0, 0, wlY);
+  sky.addColorStop(0, "#2a6ac7");
+  sky.addColorStop(1, "#a8d8f0");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, wlY);
+
+  // Sonne
+  ctx.fillStyle = "#ffe17a";
+  ctx.beginPath();
+  ctx.arc(W - 70, 54, 26, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Zwei träge driftende Wolken
+  const cloud = (cx: number, cy: number, s: number) => {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.2, cy, s * 0.2, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.48, cy - s * 0.13, s * 0.26, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.75, cy, s * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  cloud(((t * 9) % (W + 160)) - 80, 60, 90);
+  cloud(((t * 6 + 300) % (W + 160)) - 80, 110, 65);
+
+  // Uferstreifen mit Mini-Bäumen direkt über der Wasserlinie
+  ctx.fillStyle = "#2e6b45";
   ctx.beginPath();
   ctx.moveTo(0, wlY);
+  for (let x = 0; x <= W; x += 16)
+    ctx.lineTo(x, wlY - 14 + Math.sin(x * 0.02) * 5 + Math.sin(x * 0.008) * 4);
   ctx.lineTo(W, wlY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(120,200,255,0.5)";
-  ctx.font = "11px sans-serif";
+  ctx.closePath();
+  ctx.fill();
+  for (let i = 0; i < 7; i++) {
+    const tx = 50 + i * (W / 7) + ((i * 37) % 24);
+    const s = 14 + ((i * 13) % 8);
+    ctx.fillStyle = "#6e4a2a";
+    ctx.fillRect(tx - 1.5, wlY - 16, 3, 6);
+    ctx.fillStyle = ["#2f7d4a", "#3c9159", "#27693e"][i % 3];
+    ctx.beginPath();
+    if (i % 2 === 0) {
+      ctx.moveTo(tx - s * 0.5, wlY - 14);
+      ctx.lineTo(tx + s * 0.5, wlY - 14);
+      ctx.lineTo(tx, wlY - 14 - s);
+      ctx.closePath();
+    } else {
+      ctx.arc(tx, wlY - 18 - s * 0.25, s * 0.45, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+
+  // Wasser mit sanft animierter Oberkante
+  const water = ctx.createLinearGradient(0, wlY, 0, H);
+  water.addColorStop(0, "#1e78c8");
+  water.addColorStop(1, "#0a3d7d");
+  ctx.fillStyle = water;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 8)
+    ctx.lineTo(x, wlY + Math.sin(x * 0.03 + t * 1.8) * 3 + Math.sin(x * 0.011 - t * 1.1) * 2);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+  // Gischt-Tupfer auf der Wasserlinie
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  for (let i = 0; i < 9; i++) {
+    const gx = (((i * 131 + t * 26) % W) + W) % W;
+    ctx.beginPath();
+    ctx.arc(gx, wlY + Math.sin(gx * 0.03 + t * 1.8) * 3, 1.6 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = "rgba(8,30,70,0.55)";
+  ctx.font = "bold 11px sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.fillText("≈ Wasserlinie (grobe Schätzung, ehrlich)", W - 8, wlY - 4);
+  ctx.fillText("≈ Wasserlinie (grobe Schätzung, ehrlich)", W - 10, wlY + 18);
 
-  // Raster
-  ctx.strokeStyle = "#23233c";
+  // Blaupausen-Raster über der Szene
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
   ctx.lineWidth = 1;
   for (let x = 0; x <= COLS; x++) {
     ctx.beginPath();
@@ -276,4 +332,13 @@ export function initBuilderInput() {
     placed = [];
     renderBuild();
   });
+
+  // Die Werkbank-Szene lebt: Wellen und Wolken bewegen sich, solange gebaut wird.
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const loop = () => {
+      if (!$("build-screen").classList.contains("hidden")) drawGrid();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
 }
