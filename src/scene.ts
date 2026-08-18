@@ -108,9 +108,13 @@ export function draw() {
     }
   }
 
+  // Ufer-Cameos (Ägypten, Amsterdam, McCarry, Koffer)
+  drawCameos(ctx, raftX, W, waterBase, time);
+
   // Struktur + Brudi + Treibgut (vor dem Wasser gezeichnet → schimmert durch)
   drawStructure(ctx, raftX, waterBase, time);
   drawDrifters(ctx, raftX, waterBase, time);
+  drawMayflies(ctx, raftX, waterBase, 0);
   if (sim.freeBrudi) {
     ctx.save();
     ctx.translate(sim.freeBrudi.x, sim.freeBrudi.y);
@@ -202,6 +206,32 @@ export function draw() {
     ctx.fillStyle = "#fff";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText("ZIEL-STEG", goalX + 120, gy - 22);
+
+    // Sehr selten: zwei Beamte warten am Steg. Routinekontrolle.
+    if (sim.blizzcon) {
+      for (const ox of [180, 205]) {
+        const px = goalX + ox;
+        // Anzug
+        ctx.fillStyle = "#22242c";
+        ctx.beginPath();
+        ctx.roundRect(px - 6, gy - 40, 12, 28, 3);
+        ctx.fill();
+        // Kopf + Sonnenbrille
+        ctx.fillStyle = "#eab68f";
+        ctx.beginPath();
+        ctx.arc(px, gy - 46, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#111";
+        ctx.fillRect(px - 5, gy - 48, 10, 3);
+      }
+      // Handschellen beim linken Beamten
+      ctx.strokeStyle = "#c0c6cc";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(goalX + 174, gy - 16, 3, 0, Math.PI * 2);
+      ctx.arc(goalX + 181, gy - 15, 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   drawRocket(ctx, raftX, waterBase);
@@ -237,12 +267,188 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
 
+  // Große Maifliegen ganz vorn — für das echte Schwarm-Gefühl
+  drawMayflies(ctx, raftX, waterBase, 1);
+
   // Nuklearer Weißblitz
   if (sim.nukeFlash > 0) {
     ctx.globalAlpha = Math.min(1, sim.nukeFlash);
     ctx.fillStyle = "#fff";
     ctx.fillRect(-40, -40, W + 80, H + 80);
     ctx.globalAlpha = 1;
+  }
+}
+
+// Maifliegen: kleine wuselnde weiße Punkte mit Flügelchen, in zwei Tiefenebenen.
+function drawMayflies(ctx: Ctx2D, raftX: number, waterBase: number, layer: number) {
+  const mf = sim.mayflies;
+  if (!mf || mf.intensity <= 0) return;
+  const t = performance.now() / 1000;
+  const n = Math.floor(mf.intensity * (layer === 0 ? 60 : 12));
+  for (let i = 0; i < n; i++) {
+    const seed = i * 127.3 + layer * 571;
+    const bx =
+      raftX +
+      Math.sin(seed) * (150 + ((seed * 3) % 120)) +
+      Math.sin(t * (1.5 + (i % 5) * 0.5) + seed) * 34;
+    const by = waterBase - 50 - ((seed * 7) % 150) + Math.cos(t * (2 + (i % 3)) + seed * 2) * 22;
+    const s = layer === 0 ? 1.2 + (i % 3) * 0.5 : 3.5 + (i % 3) * 1.4;
+    // Körper
+    ctx.fillStyle = "rgba(246,246,236,0.9)";
+    ctx.beginPath();
+    ctx.ellipse(bx, by, s, s * 0.5, seed % 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Flügelchen (flirren)
+    const flap = 0.5 + Math.abs(Math.sin(t * 26 + i)) * 0.6;
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.beginPath();
+    ctx.ellipse(bx - s * 0.7, by - s * 0.8, s * 0.9, s * 0.45 * flap, -0.7, 0, Math.PI * 2);
+    ctx.ellipse(bx + s * 0.7, by - s * 0.8, s * 0.9, s * 0.45 * flap, 0.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Ufer-Cameos: frühere Abenteuer als Kulisse am Wegesrand.
+function drawCameos(ctx: Ctx2D, raftX: number, W: number, waterBase: number, time: number) {
+  for (const cam of sim.cameos || []) {
+    const sx = raftX + (cam.atM - (sim.dist || 0)) * PXPM;
+    if (sx < -260 || sx > W + 260) continue;
+    const gy = waterBase - 24;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+
+    if (cam.id === "egypt") {
+      // Pyramiden
+      for (const [ox, s] of [
+        [-50, 58],
+        [24, 40],
+      ]) {
+        ctx.fillStyle = "#d9b87a";
+        ctx.strokeStyle = "#b3945a";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx + ox - s, gy);
+        ctx.lineTo(sx + ox + s, gy);
+        ctx.lineTo(sx + ox, gy - s * 1.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      // Kamel
+      ctx.fillStyle = "#c69a5e";
+      ctx.beginPath();
+      ctx.ellipse(sx + 92, gy - 12, 16, 8, 0, 0, Math.PI * 2); // Körper
+      ctx.arc(sx + 88, gy - 22, 5, 0, Math.PI * 2); // Höcker 1
+      ctx.arc(sx + 98, gy - 21, 4.5, 0, Math.PI * 2); // Höcker 2
+      ctx.fill();
+      ctx.strokeStyle = "#c69a5e";
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(sx + 106, gy - 14); // Hals
+      ctx.lineTo(sx + 112, gy - 26);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(sx + 114, gy - 28, 4, 2.5, 0.3, 0, Math.PI * 2); // Kopf
+      ctx.fillStyle = "#c69a5e";
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      for (const lx of [84, 90, 96, 101]) {
+        ctx.beginPath();
+        ctx.moveTo(sx + lx, gy - 8);
+        ctx.lineTo(sx + lx, gy + 2);
+        ctx.stroke();
+      }
+      // Schild
+      ctx.strokeStyle = "#5c3a18";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx - 110, gy);
+      ctx.lineTo(sx - 110, gy - 26);
+      ctx.stroke();
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(sx - 145, gy - 40, 70, 15);
+      ctx.fillStyle = "#2b2b34";
+      ctx.font = "bold 8px sans-serif";
+      ctx.fillText("CAIRO DAY TRIP", sx - 110, gy - 30);
+    }
+
+    if (cam.id === "amsterdam") {
+      // Statue auf Sockel
+      ctx.fillStyle = "#8a919a";
+      ctx.fillRect(sx - 34, gy - 14, 26, 14);
+      ctx.fillStyle = "#6f7680";
+      ctx.beginPath();
+      ctx.roundRect(sx - 27, gy - 38, 12, 24, 4); // Körper
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(sx - 21, gy - 42, 5, 0, Math.PI * 2); // Kopf
+      ctx.fill();
+      // Bettler mit Hut
+      ctx.fillStyle = "#7a5c40";
+      ctx.beginPath();
+      ctx.arc(sx + 24, gy - 8, 9, Math.PI, 0); // sitzender Rücken
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(sx + 24, gy - 18, 5, 0, Math.PI * 2); // Kopf
+      ctx.fill();
+      ctx.fillStyle = "#4d3a28";
+      ctx.beginPath();
+      ctx.ellipse(sx + 36, gy - 1, 6, 2.5, 0, 0, Math.PI * 2); // Hut für Münzen
+      ctx.fill();
+      // Quest-Ausrufezeichen (hüpft)
+      const qy = gy - 56 + Math.sin(time * 4) * 4;
+      ctx.fillStyle = "#ffd200";
+      ctx.font = "bold 22px sans-serif";
+      ctx.fillText("!", sx + 24, qy);
+    }
+
+    if (cam.id === "mccarry") {
+      // Mast + goldenes M
+      ctx.strokeStyle = "#8a2b1a";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(sx, gy);
+      ctx.lineTo(sx, gy - 58);
+      ctx.stroke();
+      ctx.fillStyle = "#c8102e";
+      ctx.beginPath();
+      ctx.roundRect(sx - 22, gy - 86, 44, 30, 5);
+      ctx.fill();
+      ctx.fillStyle = "#ffd200";
+      ctx.font = "bold 26px sans-serif";
+      ctx.fillText("M", sx, gy - 62);
+      // Willkommens-Schild
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(sx - 52, gy - 50, 104, 14);
+      ctx.fillStyle = "#2b2b34";
+      ctx.font = "bold 8px sans-serif";
+      ctx.fillText("WELCOME HOME, MATTI", sx, gy - 40);
+    }
+
+    if (cam.id === "suitcase") {
+      // Der Koffer treibt im Wasser. Niemand greift zu.
+      const cy = waterBase + waveAt(sx, time) + 2;
+      ctx.translate(sx, cy);
+      ctx.rotate(Math.sin(time * 2.2) * 0.12);
+      ctx.fillStyle = "#7a4a26";
+      ctx.strokeStyle = "#54301a";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-13, -9, 26, 16, 3);
+      ctx.fill();
+      ctx.stroke();
+      // Griff + Schnallen
+      ctx.beginPath();
+      ctx.arc(0, -9, 5, Math.PI, 0);
+      ctx.stroke();
+      ctx.fillStyle = "#ffd24a";
+      ctx.fillRect(-8, -4, 3, 5);
+      ctx.fillRect(5, -4, 3, 5);
+    }
+
+    ctx.restore();
   }
 }
 
@@ -450,6 +656,20 @@ function drawStructure(ctx: Ctx2D, raftX: number, waterBase: number, time: numbe
   // Brudi auf der Standfläche (fällt bei Kenterung separat)
   if (!sim.freeBrudi) {
     drawBrudi(ctx, offX + st.standX, offY + st.standY, time, false);
+  }
+
+  // Tote Maifliegen sammeln sich als weiße Flecken auf dem Deck
+  if (sim.mayflies && sim.mayflies.corpses > 0) {
+    ctx.fillStyle = "rgba(242,242,232,0.85)";
+    const nC = Math.min(70, sim.mayflies.corpses);
+    for (let i = 0; i < nC; i++) {
+      const sd = i * 91.7;
+      const cx = offX + ((sd * 13) % st.Wpx);
+      const cy = offY + ((sd * 29) % Math.max(1, st.Hpx * 0.4));
+      ctx.beginPath();
+      ctx.arc(cx, cy, 1.1 + (i % 2) * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // Möwe, sein neuer Mitbewohner
@@ -859,7 +1079,10 @@ export function drawBrudi(ctx: Ctx2D, x: number, footY: number, time: number, fo
   const panic =
     forcePanic || sim.phase === "sinking" || sim.phase === "sunk" || sim.phase === "capsize";
   const won = sim.phase === "won";
-  const flail = panic ? Math.sin(performance.now() / 60) * 0.9 : Math.sin(time * 2) * 0.12;
+  // Beim Maifliegen-Schwarm wird gewedelt, was die Arme hergeben
+  const swatting = !panic && !won && sim.mayflies && sim.mayflies.intensity > 0.4;
+  const flail =
+    panic || swatting ? Math.sin(performance.now() / 60) * 0.9 : Math.sin(time * 2) * 0.12;
 
   const skin = "#eab68f";
   const skinDark = "#c68e63";
@@ -926,7 +1149,7 @@ export function drawBrudi(ctx: Ctx2D, x: number, footY: number, time: number, fo
   ctx.lineWidth = 7;
   const armY = -48;
   ctx.beginPath();
-  if (panic || won) {
+  if (panic || won || swatting) {
     ctx.moveTo(-12, armY);
     ctx.lineTo(-24, armY - 20 + flail * 8);
     ctx.moveTo(12, armY);

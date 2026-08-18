@@ -78,7 +78,40 @@ export function startTest() {
     tiltQuoteDone: false,
     // Der zweite Affe schwebt bei knapp der Hälfte aller Fahrten vorbei
     umbrellaMonkey: Math.random() < 0.45 ? { atM: 150 + Math.random() * 300 } : null,
+    // Der Maifliegen-Schwarm. Wer dabei war, weiß Bescheid.
+    mayflies:
+      Math.random() < 0.35
+        ? {
+            atM: 200 + Math.random() * 200,
+            t: 0,
+            intensity: 0,
+            corpses: 0,
+            started: false,
+            done: false,
+          }
+        : null,
+    scamTax: 0,
+    nuggets: false,
+    blizzWarned: false,
+    // Sehr selten stehen zwei Beamte am Ziel-Steg. Reine Formsache.
+    blizzcon: Math.random() < 0.02,
   });
+
+  // Ufer-Cameos: maximal zwei frühere Abenteuer pro Fahrt
+  const cameoPool = [
+    { id: "egypt", p: 0.25 },
+    { id: "amsterdam", p: 0.25 },
+    { id: "mccarry", p: 0.25 },
+    { id: "suitcase", p: 0.2 },
+  ];
+  sim.cameos = cameoPool
+    .filter((c) => Math.random() < c.p)
+    .slice(0, 2)
+    .map((c) => ({ id: c.id, atM: 130 + Math.random() * 320, stage: 0 }));
+  sim.cameos.sort((a: any, b: any) => a.atM - b.atM);
+  for (let i = 1; i < sim.cameos.length; i++)
+    if (sim.cameos[i].atM - sim.cameos[i - 1].atM < 90)
+      sim.cameos[i].atM = sim.cameos[i - 1].atM + 90;
 
   // ---- Der Flusslauf: Stromschnellen, Felsen, ggf. eine Rakete. Normal. ----
   sim.zones = [];
@@ -337,6 +370,86 @@ function update(dt: number) {
   if (!sim.tiltQuoteDone && sim.phase === "float" && Math.abs(sim.tilt) > 0.32) {
     sim.tiltQuoteDone = true;
     showBanner("Brudi: „Das ist kein Kentern, ich verlagere den Schwerpunkt.“", false, 2400);
+  }
+
+  // ---- Maifliegen: erst einzeln, dann alle. ----
+  const mf = sim.mayflies;
+  if (mf && !mf.done && sim.phase === "float") {
+    if (!mf.started && sim.dist >= mf.atM) {
+      mf.started = true;
+      showBanner("⚠️ Einzelne Maifliegen gesichtet.", true, 2000);
+    }
+    if (mf.started) {
+      mf.t += dt;
+      mf.intensity = mf.t < 2 ? mf.t / 2 : mf.t < 8 ? 1 : Math.max(0, 1 - (mf.t - 8) / 2);
+      if (!mf.swarmMsg && mf.t > 2.2) {
+        mf.swarmMsg = true;
+        showBanner("Das sind nicht mehr einzelne Maifliegen.", true, 2000);
+      }
+      if (!mf.lightMsg && mf.t > 4.5) {
+        mf.lightMsg = true;
+        showBanner("BRUDI, MACH DAS LICHT AUS!", true, 2200);
+      }
+      if (!mf.quoteMsg && mf.t > 6.5) {
+        mf.quoteMsg = true;
+        showBanner("Brudi: „Maifliegen gehen nicht auf Menschen.“", false, 2200);
+      }
+      // Tote Fliegen sammeln sich auf dem Deck und wiegen was
+      if (mf.t > 2 && mf.t < 8 && Math.random() < dt * 20) {
+        mf.corpses++;
+        if (mf.corpses % 40 === 0 && sim.main) sim.main.weight += 1;
+      }
+      if (mf.t >= 10) {
+        mf.done = true;
+        mf.intensity = 0;
+        const kg = Math.max(1, Math.min(3, Math.floor(mf.corpses / 40)));
+        showBanner(`Die weißen Leichen sammeln sich auf dem Deck. +${kg} kg. 🪰`, true, 2600);
+      }
+    }
+  }
+
+  // ---- Ufer-Cameos: kurze Deep Cuts am Wegesrand ----
+  for (const cam of sim.cameos || []) {
+    if (sim.phase !== "float") break;
+    if (cam.stage === 0 && sim.dist >= cam.atM - 40) {
+      cam.stage = 1;
+      if (cam.id === "egypt")
+        showBanner("🐪 ÄGYPTEN-BIOM ENTDECKT. Geografisch vollkommen korrekt.", false, 2600);
+      if (cam.id === "amsterdam")
+        showBanner("❗ Nebenquest entdeckt: Statue oder Bettler?", false, 2400);
+      if (cam.id === "mccarry")
+        showBanner("🍟 McCarry-Drive-through: „WELCOME HOME, MATTI“", false, 2600);
+      if (cam.id === "suitcase")
+        showBanner("💼 25.000 € treiben vorbei. Fokus bleibt auf dem fünften Fass.", false, 2800);
+    } else if (cam.stage === 1 && sim.dist >= cam.atM + 15) {
+      cam.stage = 2;
+      if (cam.id === "egypt") {
+        sim.scamTax = 100;
+        showBanner(
+          "Brudi wurde für 55 GB Auftrieb vollständig abgezogen. (−100 Punkte)",
+          true,
+          2800,
+        );
+      }
+      if (cam.id === "amsterdam")
+        showBanner("Quest ignoriert. Hauptsache weiter flussabwärts.", false, 2400);
+      if (cam.id === "mccarry") {
+        sim.nuggets = true;
+        sim.comfort += 1;
+        if (sim.main) sim.main.weight += 5;
+        showBanner(
+          "Brudi: „Ich heiße nicht Matti.“ — McNugget-Karton an Bord: +1 Komfort, +5 kg.",
+          false,
+          3000,
+        );
+      }
+    }
+  }
+
+  // Die Beamten am Steg. Reine Routinekontrolle.
+  if (sim.blizzcon && !sim.blizzWarned && sim.phase === "float" && sim.dist >= GOAL_M - 55) {
+    sim.blizzWarned = true;
+    showBanner("🛂 ENTRY DENIED. …ach nee, doch nicht. Weiterfahren.", true, 2600);
   }
 
   // Möwe. Einfach so.
@@ -651,6 +764,18 @@ function endTest(won: boolean) {
       badges.push("💯 0,1 % Floß-Meta — kein Teil verloren (+300)");
       bonus += 300;
     }
+  }
+  if (won && sim.mayflies && sim.mayflies.done) {
+    badges.push("🪰 Maifliegen-Massengrab (+150)");
+    bonus += 150;
+  }
+  if (won && sim.nuggets) {
+    badges.push("🍗 McCarry — Nuggets an Bord und nicht gekentert (+100)");
+    bonus += 100;
+  }
+  if (sim.scamTax > 0) {
+    badges.push(`🐪 Voll abgezogen (−${sim.scamTax})`);
+    bonus -= sim.scamTax;
   }
   if (sim.tapeUsed > 0) {
     badges.push(`🩹 Fachgerecht repariert (${sim.tapeUsed}×, +${sim.tapeUsed * 100})`);
