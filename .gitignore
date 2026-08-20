@@ -13,6 +13,13 @@ public/game.js
 .idea/
 .vscode/
 
+# Interne Arbeitsdokumente (Specs/Pläne bleiben lokal)
+docs/
+
 # Sonstiges (Screenshots im Projekt-Root; public/assets/ bleibt getrackt)
 /*.png
 *.log
+
+# Claude
+.claude/
+docs/
