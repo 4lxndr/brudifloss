@@ -1,10 +1,12 @@
-/* Highscore-Zugriff auf D1: ein Eintrag je Spieler und Modus, nur Bestwert zählt. */
+/* Highscore-Zugriff auf D1: jeder Lauf zählt einzeln, pro Spieler und Modus
+   bleiben die besten 5 Läufe gespeichert. */
 
 import type { SessionUser } from "./session";
 
 export type Mode = "classic" | "endless";
 
 export const CAPS: Record<Mode, number> = { classic: 10_000, endless: 50_000 };
+export const KEEP_RUNS = 5;
 
 export interface BoardRow {
   rank: number;
@@ -32,27 +34,35 @@ export function validateScore(mode: unknown, value: unknown): { mode: Mode; valu
   return { mode: m, value };
 }
 
-export async function upsertScore(
+export async function submitRun(
   db: D1Database,
   user: SessionUser,
   mode: Mode,
   value: number,
 ): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO floss_scores (twitch_id, mode, value, display_name, avatar_url, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-       ON CONFLICT (twitch_id, mode) DO UPDATE SET
-         value = MAX(floss_scores.value, excluded.value),
-         display_name = excluded.display_name,
-         avatar_url = excluded.avatar_url,
-         updated_at = CASE
-           WHEN excluded.value > floss_scores.value THEN excluded.updated_at
-           ELSE floss_scores.updated_at
-         END`,
-    )
-    .bind(user.id, mode, value, user.name, user.avatar, new Date().toISOString())
-    .run();
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO floss_scores (twitch_id, mode, value, display_name, avatar_url, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      )
+      .bind(user.id, mode, value, user.name, user.avatar, now),
+    db
+      .prepare(`UPDATE floss_scores SET display_name = ?2, avatar_url = ?3 WHERE twitch_id = ?1`)
+      .bind(user.id, user.name, user.avatar),
+    db
+      .prepare(
+        `DELETE FROM floss_scores
+         WHERE twitch_id = ?1 AND mode = ?2 AND id NOT IN (
+           SELECT id FROM floss_scores
+           WHERE twitch_id = ?1 AND mode = ?2
+           ORDER BY value DESC, created_at ASC, id ASC
+           LIMIT ${KEEP_RUNS}
+         )`,
+      )
+      .bind(user.id, mode),
+  ]);
 }
 
 export async function getBoard(db: D1Database, mode: Mode, twitchId?: string): Promise<Board> {
@@ -60,7 +70,7 @@ export async function getBoard(db: D1Database, mode: Mode, twitchId?: string): P
     .prepare(
       `SELECT twitch_id, display_name, avatar_url, value
        FROM floss_scores WHERE mode = ?1
-       ORDER BY value DESC, updated_at ASC LIMIT 10`,
+       ORDER BY value DESC, created_at ASC, id ASC LIMIT 10`,
     )
     .bind(mode)
     .all<{ twitch_id: string; display_name: string; avatar_url: string; value: number }>();
@@ -75,20 +85,19 @@ export async function getBoard(db: D1Database, mode: Mode, twitchId?: string): P
 
   let me: Board["me"] = null;
   if (twitchId !== undefined) {
-    const mine = await db
-      .prepare(`SELECT value FROM floss_scores WHERE mode = ?1 AND twitch_id = ?2`)
+    const best = await db
+      .prepare(`SELECT MAX(value) AS value FROM floss_scores WHERE mode = ?1 AND twitch_id = ?2`)
       .bind(mode, twitchId)
-      .first<{ value: number }>();
-    if (mine) {
+      .first<{ value: number | null }>();
+    if (best && best.value !== null) {
       const stats = await db
         .prepare(
-          `SELECT COUNT(*) AS total,
-                  SUM(CASE WHEN value > ?2 THEN 1 ELSE 0 END) AS better
+          `SELECT COUNT(*) AS total, SUM(CASE WHEN value > ?2 THEN 1 ELSE 0 END) AS better
            FROM floss_scores WHERE mode = ?1`,
         )
-        .bind(mode, mine.value)
-        .first<{ total: number; better: number }>();
-      me = { rank: (stats?.better ?? 0) + 1, value: mine.value, total: stats?.total ?? 0 };
+        .bind(mode, best.value)
+        .first<{ total: number; better: number | null }>();
+      me = { rank: (stats?.better ?? 0) + 1, value: best.value, total: stats?.total ?? 0 };
     }
   }
   return { top, me };

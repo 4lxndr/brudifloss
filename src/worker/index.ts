@@ -10,7 +10,7 @@ import {
   type SessionUser,
 } from "./session";
 import { exchangeCode, fetchUser } from "./twitch";
-import { getBoard, parseMode, upsertScore, validateScore } from "./scores";
+import { getBoard, parseMode, submitRun, validateScore } from "./scores";
 
 export interface Env {
   DB: D1Database;
@@ -58,7 +58,7 @@ async function scoresPost(req: Request, env: Env): Promise<Response> {
   const last = lastSubmit.get(user.id) ?? 0;
   if (Date.now() - last < SUBMIT_COOLDOWN_MS) return json({ error: "slow_down" }, 429);
   lastSubmit.set(user.id, Date.now());
-  await upsertScore(env.DB, user, parsed.mode, parsed.value);
+  await submitRun(env.DB, user, parsed.mode, parsed.value);
   return json(await getBoard(env.DB, parsed.mode, user.id));
 }
 

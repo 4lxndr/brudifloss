@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import { validateScore, upsertScore, getBoard } from "../src/worker/scores";
+import { validateScore, submitRun, getBoard, KEEP_RUNS } from "../src/worker/scores";
 import type { SessionUser } from "../src/worker/session";
 
 const brudi: SessionUser = { id: "1", login: "brudi", name: "Brudi", avatar: "a1" };
@@ -26,47 +26,62 @@ describe("validateScore", () => {
   });
 });
 
-describe("upsertScore", () => {
-  it("legt an und behält nur den Bestwert", async () => {
-    await upsertScore(env.DB, brudi, "classic", 500);
-    await upsertScore(env.DB, brudi, "classic", 300);
-    let board = await getBoard(env.DB, "classic", brudi.id);
-    expect(board.me).toMatchObject({ rank: 1, value: 500 });
-    await upsertScore(env.DB, brudi, "classic", 900);
-    board = await getBoard(env.DB, "classic", brudi.id);
-    expect(board.me).toMatchObject({ rank: 1, value: 900 });
+describe("submitRun", () => {
+  it("speichert jeden Lauf einzeln", async () => {
+    await submitRun(env.DB, brudi, "classic", 500);
+    await submitRun(env.DB, brudi, "classic", 300);
+    const board = await getBoard(env.DB, "classic", brudi.id);
+    expect(board.top.map((r) => r.value)).toEqual([500, 300]);
+    expect(board.top.every((r) => r.self)).toBe(true);
+    expect(board.me).toEqual({ rank: 1, value: 500, total: 2 });
   });
 
-  it("aktualisiert Name/Avatar auch ohne neuen Bestwert", async () => {
-    await upsertScore(env.DB, brudi, "classic", 500);
-    await upsertScore(env.DB, { ...brudi, name: "NeuerName", avatar: "a2" }, "classic", 100);
+  it("behält nur die besten 5 Läufe je Spieler und Modus", async () => {
+    for (const v of [100, 200, 300, 400, 500, 600]) await submitRun(env.DB, brudi, "classic", v);
+    const board = await getBoard(env.DB, "classic", brudi.id);
+    expect(board.top.map((r) => r.value)).toEqual([600, 500, 400, 300, 200]);
+    expect(board.me?.total).toBe(KEEP_RUNS);
+  });
+
+  it("ein schlechterer Lauf als der 5.-beste fliegt sofort wieder raus", async () => {
+    for (const v of [600, 500, 400, 300, 200]) await submitRun(env.DB, brudi, "classic", v);
+    await submitRun(env.DB, brudi, "classic", 100);
+    const board = await getBoard(env.DB, "classic", brudi.id);
+    expect(board.top.map((r) => r.value)).toEqual([600, 500, 400, 300, 200]);
+  });
+
+  it("aktualisiert Name/Avatar auf allen Zeilen", async () => {
+    await submitRun(env.DB, brudi, "classic", 500);
+    await submitRun(env.DB, { ...brudi, name: "NeuerName", avatar: "a2" }, "classic", 100);
     const board = await getBoard(env.DB, "classic");
-    expect(board.top[0]).toMatchObject({ name: "NeuerName", avatar: "a2", value: 500 });
+    expect(board.top.map((r) => r.name)).toEqual(["NeuerName", "NeuerName"]);
+    expect(board.top[0].avatar).toBe("a2");
   });
 
   it("Modi sind getrennt", async () => {
-    await upsertScore(env.DB, brudi, "classic", 500);
-    await upsertScore(env.DB, brudi, "endless", 777);
-    expect((await getBoard(env.DB, "classic")).top[0].value).toBe(500);
-    expect((await getBoard(env.DB, "endless")).top[0].value).toBe(777);
+    await submitRun(env.DB, brudi, "classic", 500);
+    await submitRun(env.DB, brudi, "endless", 777);
+    expect((await getBoard(env.DB, "classic")).top.map((r) => r.value)).toEqual([500]);
+    expect((await getBoard(env.DB, "endless")).top.map((r) => r.value)).toEqual([777]);
   });
 });
 
 describe("getBoard", () => {
-  it("Top 10 absteigend, self-Flag, Rang außerhalb der Top 10", async () => {
-    for (let i = 1; i <= 12; i++) await upsertScore(env.DB, gast(i), "classic", i * 100);
-    await upsertScore(env.DB, brudi, "classic", 50); // Platz 13
+  it("Top 10 absteigend, Spieler darf mehrfach auftauchen", async () => {
+    for (const v of [900, 800, 700]) await submitRun(env.DB, brudi, "classic", v);
+    await submitRun(env.DB, gast(1), "classic", 850);
     const board = await getBoard(env.DB, "classic", brudi.id);
-    expect(board.top).toHaveLength(10);
-    expect(board.top[0]).toMatchObject({ rank: 1, value: 1200, self: false });
-    expect(board.top[9]).toMatchObject({ rank: 10, value: 300 });
-    expect(board.me).toEqual({ rank: 13, value: 50, total: 13 });
+    expect(board.top.map((r) => r.value)).toEqual([900, 850, 800, 700]);
+    expect(board.top.map((r) => r.self)).toEqual([true, false, true, true]);
   });
 
-  it("markiert die eigene Zeile", async () => {
-    await upsertScore(env.DB, brudi, "classic", 500);
+  it("Rang außerhalb der Top 10, total zählt Läufe", async () => {
+    for (let i = 1; i <= 12; i++) await submitRun(env.DB, gast(i), "classic", i * 100);
+    await submitRun(env.DB, brudi, "classic", 50);
     const board = await getBoard(env.DB, "classic", brudi.id);
-    expect(board.top[0].self).toBe(true);
+    expect(board.top).toHaveLength(10);
+    expect(board.top[0].value).toBe(1200);
+    expect(board.me).toEqual({ rank: 13, value: 50, total: 13 });
   });
 
   it("leer + ohne Login", async () => {
