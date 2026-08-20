@@ -10,7 +10,7 @@
     { "pattern": "floss-simulator.brudigames.app", "custom_domain": true }
   ],
   "vars": {
-    "TWITCH_CLIENT_ID": "SETZE-MICH"
+    "TWITCH_CLIENT_ID": "wcyfqbvjih58xo7p4442h244r0d6iy"
   },
   "d1_databases": [
     {
