@@ -90,6 +90,7 @@ export async function refreshBoard(): Promise<void> {
 
 const SAVE_FAILED_HINT = `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden — die Liste zeigt den letzten Stand.</p>`;
 const RETRY_DELAY_MS = 10_500;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 function renderBoardBox(box: HTMLElement, board: Board, mode: Mode, hint: string): void {
   box.innerHTML = `<h3>🏆 Bestenliste</h3><ol class="board-list">${listHtml(board, mode)}</ol>${hint}`;
@@ -111,14 +112,19 @@ async function retryScore(box: HTMLElement, mode: Mode, value: number): Promise<
     renderBoardBox(box, board, mode, placement);
     void refreshBoard();
   } catch {
-    const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
-    renderBoardBox(box, board, mode, SAVE_FAILED_HINT);
+    try {
+      const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+      renderBoardBox(box, board, mode, SAVE_FAILED_HINT);
+    } catch {
+      box.innerHTML = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
+    }
   }
 }
 
 /* Nach einem Lauf: Score einreichen (falls eingeloggt) und im Endscreen anzeigen. */
 export async function reportRun(mode: Mode, value: number): Promise<void> {
   const box = $("end-board");
+  clearTimeout(retryTimer); // ein alter Retry darf einen neuen Lauf nicht überschreiben
   if (!me) {
     box.innerHTML =
       LOGIN_BTN + `<p class="board-hint">…und beim nächsten Lauf in die Bestenliste einziehen.</p>`;
@@ -139,7 +145,7 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
       } else if (res.status === 429) {
         rateLimited = true;
         board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
-        setTimeout(() => void retryScore(box, mode, value), RETRY_DELAY_MS);
+        retryTimer = setTimeout(() => void retryScore(box, mode, value), RETRY_DELAY_MS);
       } else {
         saveFailed = true;
         board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;

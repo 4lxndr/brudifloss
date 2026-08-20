@@ -21,9 +21,41 @@ Die Wahrscheinlichkeit, dass das gut geht, wurde von unabhängigen Experten mit 
 
 ## Tech (der langweilige Teil)
 
-- TypeScript → esbuild → javascript-obfuscator → Cloudflare Workers (Static Assets)
-- `npm run build` — bauen · `npm run deploy` — bauen + deployen · `npm run typecheck` — Gewissen beruhigen
-- Keine Datenbank. Keine Accounts. Keine Zulassung.
+- TypeScript → esbuild → javascript-obfuscator → Cloudflare Workers (Static Assets + Fetch-Handler)
+- Highscores in Cloudflare D1 (Datenbank `brudivoeller`, Tabelle `floss_scores`) — bester Lauf je Spieler, je Modus
+- Login via Twitch OAuth, Session als HMAC-signiertes HttpOnly-Cookie. Gäste dürfen trotzdem ertrinken, nur eben anonym.
+- `npm run build` — bauen · `npm run deploy` — bauen + deployen · `npm run typecheck` — Gewissen beruhigen · `npm test` — Worker-Tests (Vitest + Miniflare)
+- Immer noch keine Zulassung.
+
+## Setup (einmalig, für den Betrieb)
+
+Es gibt eine [Twitch-App](https://dev.twitch.tv/console/apps) mit diesen OAuth-Redirect-URLs:
+
+- `https://floss-simulator.brudigames.app/auth/callback`
+- `http://localhost:8787/auth/callback` (lokale Entwicklung)
+
+Die Client-ID steht öffentlich in `wrangler.jsonc` unter `vars.TWITCH_CLIENT_ID`.
+Die Geheimnisse leben als Worker-Secrets und werden interaktiv gesetzt (nie committen,
+nie in die Shell-History tippen):
+
+```sh
+npx wrangler secret put TWITCH_CLIENT_SECRET   # das Secret der Twitch-App
+npx wrangler secret put SESSION_SECRET         # beliebiger langer Zufallsstring (signiert die Session-Cookies)
+```
+
+Wrangler fragt nach dem Wert — einfach reinpasten, Enter, fertig. `wrangler secret list`
+zeigt, was gesetzt ist (nur Namen, nie Werte). Wird `SESSION_SECRET` rotiert, sind alle
+ausgeloggt — die Highscores bleiben.
+
+Für lokale Entwicklung die gleichen zwei Namen in eine `.dev.vars` legen (ist gitignored):
+
+```
+TWITCH_CLIENT_SECRET=…
+SESSION_SECRET=irgendwas-langes-lokales
+```
+
+Datenbank-Migrationen: `npx wrangler d1 migrations apply brudivoeller --local` für den
+Dev-Server, mit `--remote` statt `--local` für Produktion.
 
 ## Credits
 
