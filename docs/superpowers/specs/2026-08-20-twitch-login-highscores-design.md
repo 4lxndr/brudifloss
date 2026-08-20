@@ -21,7 +21,7 @@ Gäste dürfen weiterhin ohne Login spielen, erscheinen aber nicht in der Liste.
   Durable Objects (Overkill) verworfen.
 - **Mehrere Games:** Die D1-Datenbank heißt `brudivoeller` und wird von künftigen
   Brudi-Games mitbenutzt. Tabellen werden je Game gepräfixt; dieses Game nutzt
-  das Präfix `floss_`.
+  das Präfix `floss_`. Das Spiel läuft unter `floss-simulator.brudigames.app`.
 - Twitch-App (Client-ID + Secret) existiert bereits beim Nutzer.
 
 ## Architektur
@@ -98,7 +98,7 @@ können sich ändern). Migrationsdateien liegen unter `migrations/` und laufen
   (database `brudivoeller`), `vars.TWITCH_CLIENT_ID`.
 - Secrets über `wrangler secret put`: `TWITCH_CLIENT_SECRET`, `SESSION_SECRET`.
 - Twitch-App braucht als OAuth-Redirect-URLs:
-  `https://floss.brudigames.app/auth/callback` und für lokale Entwicklung
+  `https://floss-simulator.brudigames.app/auth/callback` und für lokale Entwicklung
   `http://localhost:8787/auth/callback`.
 - Build unverändert (esbuild + Obfuskierung für das Spiel-Bundle); der Worker-Code
   wird von Wrangler selbst gebündelt und nicht obfuskiert.
