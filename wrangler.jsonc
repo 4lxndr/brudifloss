@@ -1,10 +1,24 @@
 {
   "name": "brudiflos",
+  "main": "src/worker/index.ts",
   "compatibility_date": "2026-08-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public"
+  },
   "routes": [
     { "pattern": "floss-simulator.brudigames.app", "custom_domain": true }
   ],
-  "assets": {
-    "directory": "./public"
-  }
+  "vars": {
+    "TWITCH_CLIENT_ID": "SETZE-MICH"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "brudivoeller",
+      "database_id": "70507290-ad4c-46ab-877c-2ff376649ec8",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "observability": { "enabled": true }
 }

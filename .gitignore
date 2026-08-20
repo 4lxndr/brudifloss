@@ -20,6 +20,9 @@ docs/
 /*.png
 *.log
 
+# Lokale Secrets
+.dev.vars
+
 # Claude
 .claude/
 docs/
