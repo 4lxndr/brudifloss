@@ -88,6 +88,34 @@ export async function refreshBoard(): Promise<void> {
   }
 }
 
+const SAVE_FAILED_HINT = `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden — die Liste zeigt den letzten Stand.</p>`;
+const RETRY_DELAY_MS = 10_500;
+
+function renderBoardBox(box: HTMLElement, board: Board, mode: Mode, hint: string): void {
+  box.innerHTML = `<h3>🏆 Bestenliste</h3><ol class="board-list">${listHtml(board, mode)}</ol>${hint}`;
+}
+
+/* Ein Retry nach 429 (Rate-Limit): derselbe Lauf wird nochmal gepostet, statt verloren zu gehen. */
+async function retryScore(box: HTMLElement, mode: Mode, value: number): Promise<void> {
+  try {
+    const res = await fetch("/api/scores", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode, value }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const board = (await res.json()) as Board;
+    const placement = board.me
+      ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
+      : "";
+    renderBoardBox(box, board, mode, placement);
+    void refreshBoard();
+  } catch {
+    const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+    renderBoardBox(box, board, mode, SAVE_FAILED_HINT);
+  }
+}
+
 /* Nach einem Lauf: Score einreichen (falls eingeloggt) und im Endscreen anzeigen. */
 export async function reportRun(mode: Mode, value: number): Promise<void> {
   const box = $("end-board");
@@ -99,6 +127,7 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
   try {
     let board: Board;
     let saveFailed = false;
+    let rateLimited = false;
     if (value > 0) {
       const res = await fetch("/api/scores", {
         method: "POST",
@@ -107,6 +136,10 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
       });
       if (res.ok) {
         board = (await res.json()) as Board;
+      } else if (res.status === 429) {
+        rateLimited = true;
+        board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+        setTimeout(() => void retryScore(box, mode, value), RETRY_DELAY_MS);
       } else {
         saveFailed = true;
         board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
@@ -114,12 +147,14 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
     } else {
       board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
     }
-    const placement = saveFailed
-      ? `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden — die Liste zeigt den letzten Stand.</p>`
-      : board.me
-        ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
-        : "";
-    box.innerHTML = `<h3>🏆 Bestenliste</h3><ol class="board-list">${listHtml(board, mode)}</ol>${placement}`;
+    const placement = rateLimited
+      ? `<p class="board-hint">⏳ Kurz gewartet — dein Lauf wird gleich gespeichert …</p>`
+      : saveFailed
+        ? SAVE_FAILED_HINT
+        : board.me
+          ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
+          : "";
+    renderBoardBox(box, board, mode, placement);
     void refreshBoard();
   } catch {
     box.innerHTML = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
