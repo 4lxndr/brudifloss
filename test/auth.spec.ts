@@ -56,6 +56,19 @@ describe("/auth/callback", () => {
     expect(cookies.some((c) => c.startsWith("floss_session=") && c.includes("HttpOnly"))).toBe(true);
     expect(cookies.some((c) => c.startsWith("floss_oauth_state=;"))).toBe(true);
   });
+
+  it("Fehler beim Token-Tausch wird zu sauberem 500", async () => {
+    fetchMock
+      .get("https://id.twitch.tv")
+      .intercept({ method: "POST", path: "/oauth2/token" })
+      .reply(500, "kaputt");
+    const res = await SELF.fetch("https://x/auth/callback?code=c&state=s2", {
+      redirect: "manual",
+      headers: { cookie: "floss_oauth_state=s2" },
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "server_error" });
+  });
 });
 
 describe("/auth/me + /auth/logout", () => {

@@ -111,11 +111,11 @@ export default {
     const url = new URL(req.url);
     try {
       if (url.pathname === "/auth/login" && req.method === "GET") return authLogin(url, env);
-      if (url.pathname === "/auth/callback" && req.method === "GET") return authCallback(req, url, env);
-      if (url.pathname === "/auth/me" && req.method === "GET") return authMe(req, env);
+      if (url.pathname === "/auth/callback" && req.method === "GET") return await authCallback(req, url, env);
+      if (url.pathname === "/auth/me" && req.method === "GET") return await authMe(req, env);
       if (url.pathname === "/auth/logout" && req.method === "POST") return authLogout();
-      if (url.pathname === "/api/scores" && req.method === "GET") return scoresGet(req, url, env);
-      if (url.pathname === "/api/scores" && req.method === "POST") return scoresPost(req, env);
+      if (url.pathname === "/api/scores" && req.method === "GET") return await scoresGet(req, url, env);
+      if (url.pathname === "/api/scores" && req.method === "POST") return await scoresPost(req, env);
     } catch (err) {
       console.error("worker error", err);
       return json({ error: "server_error" }, 500);
