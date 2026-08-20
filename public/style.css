@@ -690,3 +690,111 @@ h2 {
   color: var(--accent2);
   font-size: 1.6rem;
 }
+
+/* ---------- Twitch-Login + Bestenliste ---------- */
+
+.login-zone {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.twitch-btn {
+  display: inline-block;
+  background: #9146ff;
+  color: #fff;
+  font-weight: 800;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(145, 70, 255, 0.4);
+}
+
+.twitch-btn:hover {
+  background: #7c2df0;
+}
+
+.login-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #9146ff;
+}
+
+.login-name {
+  font-weight: 700;
+}
+
+.board-card {
+  background: linear-gradient(180deg, #151c33, #10152a);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.board-list {
+  list-style: none;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, #202946, #181f38);
+  border: 1px solid #2a3455;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
+
+.board-row.board-me {
+  border-color: #9146ff;
+  box-shadow: 0 0 12px rgba(145, 70, 255, 0.35);
+}
+
+.board-rank {
+  width: 28px;
+  text-align: right;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.board-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2a3455;
+}
+
+.board-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.board-empty,
+.board-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 6px 0;
+}
+
+.end-board {
+  margin: 14px 0;
+  text-align: left;
+}
+
+.end-board .twitch-btn {
+  display: block;
+  text-align: center;
+}

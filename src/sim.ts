@@ -2,6 +2,7 @@
 
 import { $, BASE_SPEED, BRUDI_WEIGHT, COLS, CT, GOAL_M, PXPM } from "./config";
 import { placed, renderBuild } from "./builder";
+import { reportRun } from "./leaderboard";
 import {
   buildStructure,
   capAt,
@@ -1000,6 +1001,8 @@ function endTest(won: boolean) {
   }
   $("end-text").textContent = text;
   $("end-score").textContent = endless ? `${meters} m` : String(score);
+  $("end-board").innerHTML = "";
+  void reportRun(endless ? "endless" : "classic", endless ? meters : score);
   $("end-screen").classList.remove("hidden");
 }
 

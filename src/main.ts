@@ -9,6 +9,7 @@ import { backToBuild, startTest, tryTape } from "./sim";
 import { settings, sim } from "./state";
 import { PARTS } from "./parts/index";
 import { initGallery } from "./gallery";
+import { initAccount, refreshBoard } from "./leaderboard";
 
 if (document.getElementById("gallery-root")) {
   // gallery.html: nur die Element-Galerie rendern (dev-only)
@@ -23,12 +24,15 @@ if (document.getElementById("gallery-root")) {
     settings.endless = endless;
     $("mode-classic").classList.toggle("active", !endless);
     $("mode-endless").classList.toggle("active", endless);
+    void refreshBoard();
   };
   $("mode-classic").addEventListener("click", () => setMode(false));
   $("mode-endless").addEventListener("click", () => setMode(true));
 
   initBuilderInput();
   renderBuild();
+  void initAccount();
+  void refreshBoard();
 
   // Debug-Zugang nur mit ?debugflos in der URL (für Entwicklung/Tests)
   if (location.search.includes("debugflos")) {
