@@ -9,7 +9,7 @@ import { backToBuild, startTest, tryTape } from "./sim";
 import { settings, sim } from "./state";
 import { PARTS } from "./parts/index";
 import { initGallery } from "./gallery";
-import { initAccount, refreshBoard } from "./leaderboard";
+import { initAccount, initOverlay, refreshBoard } from "./leaderboard";
 
 if (document.getElementById("gallery-root")) {
   // gallery.html: nur die Element-Galerie rendern (dev-only)
@@ -32,6 +32,7 @@ if (document.getElementById("gallery-root")) {
   initBuilderInput();
   renderBuild();
   void initAccount();
+  initOverlay();
   void refreshBoard();
 
   // Debug-Zugang nur mit ?debugflos in der URL (für Entwicklung/Tests)

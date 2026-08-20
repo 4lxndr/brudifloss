@@ -1,4 +1,4 @@
-/* Twitch-Login-Zone + Bestenliste (Top 10 je Modus, eigener Rang). */
+/* Twitch-Login-Zone + Bestenliste (Top 10 je Modus, Overlay, eigener Rang). */
 
 import { $ } from "./config";
 import { settings } from "./state";
@@ -30,6 +30,7 @@ const fmt = (mode: Mode, v: number) => (mode === "endless" ? `${v} m` : String(v
 const currentMode = (): Mode => (settings.endless ? "endless" : "classic");
 
 const LOGIN_BTN = `<a class="twitch-btn" href="/auth/login">Mit Twitch anmelden</a>`;
+const OFFLINE_HINT = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
 
 export async function initAccount(): Promise<void> {
   try {
@@ -88,12 +89,64 @@ export async function refreshBoard(): Promise<void> {
   }
 }
 
-const SAVE_FAILED_HINT = `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden — die Liste zeigt den letzten Stand.</p>`;
+/* ---------- Overlay ---------- */
+
+let overlayMode: Mode = "classic";
+
+export function initOverlay(): void {
+  $("board-close").addEventListener("click", closeOverlay);
+  $("board-overlay").addEventListener("click", (e) => {
+    if (e.target === $("board-overlay")) closeOverlay();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("board-overlay").classList.contains("hidden")) closeOverlay();
+  });
+  $("board-tab-classic").addEventListener("click", () => setOverlayMode("classic"));
+  $("board-tab-endless").addEventListener("click", () => setOverlayMode("endless"));
+}
+
+export function openBoardOverlay(mode: Mode): void {
+  $("board-overlay").classList.remove("hidden");
+  setOverlayMode(mode);
+}
+
+function closeOverlay(): void {
+  $("board-overlay").classList.add("hidden");
+}
+
+function setOverlayMode(mode: Mode): void {
+  overlayMode = mode;
+  $("board-tab-classic").classList.toggle("active", mode === "classic");
+  $("board-tab-endless").classList.toggle("active", mode === "endless");
+  void loadOverlayBoard();
+}
+
+async function loadOverlayBoard(): Promise<void> {
+  const list = $("overlay-board-list");
+  try {
+    const res = await fetch(`/api/scores?mode=${overlayMode}`);
+    if (!res.ok) throw new Error(String(res.status));
+    list.innerHTML = listHtml((await res.json()) as Board, overlayMode);
+  } catch {
+    list.innerHTML = `<li class="board-empty">Bestenliste gerade nicht erreichbar. 🌊</li>`;
+  }
+}
+
+/* ---------- Endscreen: kompakte Zeile + Button ---------- */
+
+const SAVE_FAILED_HINT = `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden.</p>`;
 const RETRY_DELAY_MS = 10_500;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-function renderBoardBox(box: HTMLElement, board: Board, mode: Mode, hint: string): void {
-  box.innerHTML = `<h3>🏆 Bestenliste</h3><ol class="board-list">${listHtml(board, mode)}</ol>${hint}`;
+function renderEndBox(box: HTMLElement, mode: Mode, hint: string): void {
+  box.innerHTML = hint + `<button id="end-board-btn" class="board-open-btn">🏆 Bestenliste</button>`;
+  $("end-board-btn").addEventListener("click", () => openBoardOverlay(mode));
+}
+
+function placementHint(board: Board, mode: Mode): string {
+  return board.me
+    ? `<p class="board-hint">🏅 Platz ${board.me.rank} von ${board.me.total} Läufen — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
+    : "";
 }
 
 /* Ein Retry nach 429 (Rate-Limit): derselbe Lauf wird nochmal gepostet, statt verloren zu gehen. */
@@ -105,19 +158,10 @@ async function retryScore(box: HTMLElement, mode: Mode, value: number): Promise<
       body: JSON.stringify({ mode, value }),
     });
     if (!res.ok) throw new Error(String(res.status));
-    const board = (await res.json()) as Board;
-    const placement = board.me
-      ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
-      : "";
-    renderBoardBox(box, board, mode, placement);
+    renderEndBox(box, mode, placementHint((await res.json()) as Board, mode));
     void refreshBoard();
   } catch {
-    try {
-      const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
-      renderBoardBox(box, board, mode, SAVE_FAILED_HINT);
-    } catch {
-      box.innerHTML = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
-    }
+    renderEndBox(box, mode, SAVE_FAILED_HINT);
   }
 }
 
@@ -126,14 +170,15 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
   const box = $("end-board");
   clearTimeout(retryTimer); // ein alter Retry darf einen neuen Lauf nicht überschreiben
   if (!me) {
-    box.innerHTML =
-      LOGIN_BTN + `<p class="board-hint">…und beim nächsten Lauf in die Bestenliste einziehen.</p>`;
+    renderEndBox(
+      box,
+      mode,
+      LOGIN_BTN + `<p class="board-hint">…und beim nächsten Lauf in die Bestenliste einziehen.</p>`,
+    );
     return;
   }
   try {
-    let board: Board;
-    let saveFailed = false;
-    let rateLimited = false;
+    let hint: string;
     if (value > 0) {
       const res = await fetch("/api/scores", {
         method: "POST",
@@ -141,28 +186,20 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
         body: JSON.stringify({ mode, value }),
       });
       if (res.ok) {
-        board = (await res.json()) as Board;
+        hint = placementHint((await res.json()) as Board, mode);
       } else if (res.status === 429) {
-        rateLimited = true;
-        board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+        hint = `<p class="board-hint">⏳ Kurz gewartet — dein Lauf wird gleich gespeichert …</p>`;
         retryTimer = setTimeout(() => void retryScore(box, mode, value), RETRY_DELAY_MS);
       } else {
-        saveFailed = true;
-        board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+        hint = SAVE_FAILED_HINT;
       }
     } else {
-      board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+      const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+      hint = placementHint(board, mode);
     }
-    const placement = rateLimited
-      ? `<p class="board-hint">⏳ Kurz gewartet — dein Lauf wird gleich gespeichert …</p>`
-      : saveFailed
-        ? SAVE_FAILED_HINT
-        : board.me
-          ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
-          : "";
-    renderBoardBox(box, board, mode, placement);
+    renderEndBox(box, mode, hint);
     void refreshBoard();
   } catch {
-    box.innerHTML = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
+    renderEndBox(box, mode, OFFLINE_HINT);
   }
 }

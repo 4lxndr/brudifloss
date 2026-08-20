@@ -798,3 +798,66 @@ h2 {
   display: block;
   text-align: center;
 }
+
+/* ---------- Bestenlisten-Overlay + Endscreen-Button ---------- */
+
+.board-open-btn {
+  display: inline-block;
+  margin-top: 10px;
+  background: linear-gradient(180deg, #202946, #181f38);
+  border: 1px solid #2a3455;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.board-open-btn:hover {
+  border-color: #9146ff;
+  box-shadow: 0 0 12px rgba(145, 70, 255, 0.35);
+}
+
+.board-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 20, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.board-overlay.hidden {
+  display: none;
+}
+
+.board-overlay-card {
+  background: linear-gradient(180deg, #151c33, #10152a);
+  border: 2px solid #2a3455;
+  border-radius: 16px;
+  padding: 20px;
+  width: min(520px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.board-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.board-overlay-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.end-board .board-open-btn {
+  display: block;
+  margin: 10px auto 0;
+}
