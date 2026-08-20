@@ -98,24 +98,30 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
   }
   try {
     let board: Board;
+    let saveFailed = false;
     if (value > 0) {
       const res = await fetch("/api/scores", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode, value }),
       });
-      board = res.ok
-        ? ((await res.json()) as Board)
-        : ((await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board);
+      if (res.ok) {
+        board = (await res.json()) as Board;
+      } else {
+        saveFailed = true;
+        board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+      }
     } else {
       board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
     }
-    const placement = board.me
-      ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
-      : "";
+    const placement = saveFailed
+      ? `<p class="board-hint">⚠️ Lauf konnte nicht gespeichert werden — die Liste zeigt den letzten Stand.</p>`
+      : board.me
+        ? `<p class="board-hint">Platz ${board.me.rank} von ${board.me.total} — dein Bestwert: ${fmt(mode, board.me.value)}</p>`
+        : "";
     box.innerHTML = `<h3>🏆 Bestenliste</h3><ol class="board-list">${listHtml(board, mode)}</ol>${placement}`;
     void refreshBoard();
   } catch {
-    box.innerHTML = "";
+    box.innerHTML = `<p class="board-hint">Bestenliste gerade nicht erreichbar. 🌊</p>`;
   }
 }
