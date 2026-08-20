@@ -50,6 +50,14 @@ describe("submitRun", () => {
     expect(board.top.map((r) => r.value)).toEqual([600, 500, 400, 300, 200]);
   });
 
+  it("Wertgleichheit an der 5er-Grenze: es bleiben exakt 5 Läufe", async () => {
+    for (const v of [500, 400, 300, 200, 100]) await submitRun(env.DB, brudi, "classic", v);
+    await submitRun(env.DB, brudi, "classic", 100); // gleicher Wert wie der 5.-beste
+    const board = await getBoard(env.DB, "classic", brudi.id);
+    expect(board.top.map((r) => r.value)).toEqual([500, 400, 300, 200, 100]);
+    expect(board.me?.total).toBe(KEEP_RUNS);
+  });
+
   it("aktualisiert Name/Avatar auf allen Zeilen", async () => {
     await submitRun(env.DB, brudi, "classic", 500);
     await submitRun(env.DB, { ...brudi, name: "NeuerName", avatar: "a2" }, "classic", 100);
