@@ -2,7 +2,7 @@
 
 import { $, BASE_SPEED, BRUDI_WEIGHT, COLS, CT, GOAL_M, PXPM } from "./config";
 import { placed, renderBuild } from "./builder";
-import { reportRun } from "./leaderboard";
+import { esc, getGlobalBest, reportRun } from "./leaderboard";
 import {
   buildStructure,
   capAt,
@@ -114,7 +114,7 @@ export function startTest() {
     blizzcon: Math.random() < 0.02,
     // Endlos-Modus: Distanz zählt, der Kurs wird fortlaufend generiert
     endless: settings.endless,
-    bestDist: Number(localStorage.getItem("flossBestDist") || 0),
+    bestDist: getGlobalBest("endless")?.value ?? 0,
     nextEventM: GOAL_M - 50,
     policeGone: false,
   });
@@ -878,14 +878,6 @@ function endTest(won: boolean) {
   const endless = sim.endless;
   const meters = endless ? Math.round(sim.dist) : Math.min(GOAL_M, Math.round(sim.dist));
 
-  // Endlos: Rekord festhalten
-  let newRecord = false;
-  if (endless) {
-    const best = Number(localStorage.getItem("flossBestDist") || 0);
-    newRecord = meters > best;
-    if (newRecord) localStorage.setItem("flossBestDist", String(meters));
-  }
-
   // Lore-Badges: was hat die Fahrt überlebt?
   const finalParts = st ? st.parts : [];
   const badges: string[] = [];
@@ -932,12 +924,15 @@ function endTest(won: boolean) {
     ),
   );
 
-  // Im Endlos-Modus zählt nur die Strecke
-  if (endless) {
+  // Rekord je Modus: Platz 1 der Bestenliste, Stand vor diesem Lauf
+  const result = endless ? meters : score;
+  const best = getGlobalBest(endless ? "endless" : "classic");
+  if (best && (best.value > 0 || result > 0)) {
+    const show = (v: number) => (endless ? `${v} m` : String(v));
     badges.unshift(
-      newRecord
-        ? `🏆 NEUER REKORD: ${meters} m!`
-        : `🏆 Rekord bleibt bei ${localStorage.getItem("flossBestDist") || 0} m`,
+      result > best.value
+        ? `🏆 NEUER REKORD: ${show(result)}!`
+        : `🏆 Rekord: ${show(best.value)}${best.name ? ` (${esc(best.name)})` : ""}`,
     );
   }
   $("end-score-label").textContent = endless ? "Distanz:" : "Seetauglichkeits-Score:";

@@ -25,7 +25,24 @@ interface Board {
 
 let me: Me | null = null;
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/* Platz 1 je Modus, Stand der letzten Board-Antwort. null = noch nie geladen,
+   value 0 = Liste war leer. Quelle für das Rekord-Badge im Endscreen. */
+const globalBest: Record<Mode, { value: number; name: string } | null> = {
+  classic: null,
+  endless: null,
+};
+
+function rememberBest(board: Board, mode: Mode): void {
+  globalBest[mode] = board.top.length
+    ? { value: board.top[0].value, name: board.top[0].name }
+    : { value: 0, name: "" };
+}
+
+export function getGlobalBest(mode: Mode): { value: number; name: string } | null {
+  return globalBest[mode];
+}
+
+export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fmt = (mode: Mode, v: number) => (mode === "endless" ? `${v} m` : String(v));
 const currentMode = (): Mode => (settings.endless ? "endless" : "classic");
 
@@ -83,7 +100,9 @@ export async function refreshBoard(): Promise<void> {
   try {
     const res = await fetch(`/api/scores?mode=${mode}`);
     if (!res.ok) throw new Error(String(res.status));
-    $("board-list").innerHTML = listHtml((await res.json()) as Board, mode);
+    const board = (await res.json()) as Board;
+    rememberBest(board, mode);
+    $("board-list").innerHTML = listHtml(board, mode);
   } catch {
     $("board-list").innerHTML = `<li class="board-empty">Bestenliste gerade nicht erreichbar. 🌊</li>`;
   }
@@ -126,7 +145,9 @@ async function loadOverlayBoard(): Promise<void> {
   try {
     const res = await fetch(`/api/scores?mode=${overlayMode}`);
     if (!res.ok) throw new Error(String(res.status));
-    list.innerHTML = listHtml((await res.json()) as Board, overlayMode);
+    const board = (await res.json()) as Board;
+    rememberBest(board, overlayMode);
+    list.innerHTML = listHtml(board, overlayMode);
   } catch {
     list.innerHTML = `<li class="board-empty">Bestenliste gerade nicht erreichbar. 🌊</li>`;
   }
@@ -158,7 +179,9 @@ async function retryScore(box: HTMLElement, mode: Mode, value: number): Promise<
       body: JSON.stringify({ mode, value }),
     });
     if (!res.ok) throw new Error(String(res.status));
-    renderEndBox(box, mode, placementHint((await res.json()) as Board, mode));
+    const board = (await res.json()) as Board;
+    rememberBest(board, mode);
+    renderEndBox(box, mode, placementHint(board, mode));
     void refreshBoard();
   } catch {
     renderEndBox(box, mode, SAVE_FAILED_HINT);
@@ -186,7 +209,9 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
         body: JSON.stringify({ mode, value }),
       });
       if (res.ok) {
-        hint = placementHint((await res.json()) as Board, mode);
+        const board = (await res.json()) as Board;
+        rememberBest(board, mode);
+        hint = placementHint(board, mode);
       } else if (res.status === 429) {
         hint = `<p class="board-hint">⏳ Kurz gewartet — dein Lauf wird gleich gespeichert …</p>`;
         retryTimer = setTimeout(() => void retryScore(box, mode, value), RETRY_DELAY_MS);
@@ -195,6 +220,7 @@ export async function reportRun(mode: Mode, value: number): Promise<void> {
       }
     } else {
       const board = (await (await fetch(`/api/scores?mode=${mode}`)).json()) as Board;
+      rememberBest(board, mode);
       hint = placementHint(board, mode);
     }
     renderEndBox(box, mode, hint);
